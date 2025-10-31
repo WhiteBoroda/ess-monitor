@@ -107,22 +107,33 @@ void task(void *pvParameters) {
 
   IPAddress ip;
   ip.fromString(Cfg.mqttBrokerIp);
+  uint16_t mqttPort = 1883; // Standard MQTT port
 
   // Use authentication if username and password are provided
   if (strlen(Cfg.mqttUsername) > 0 && strlen(Cfg.mqttPassword) > 0) {
-    Serial.printf("[HASS] Connecting to MQTT broker %s with authentication (user: %s)\n",
-                  Cfg.mqttBrokerIp, Cfg.mqttUsername);
-    mqtt.begin(ip, Cfg.mqttUsername, Cfg.mqttPassword);
+    Serial.printf("[HASS] Connecting to MQTT broker %s:%d with authentication (user: %s)\n",
+                  Cfg.mqttBrokerIp, mqttPort, Cfg.mqttUsername);
+    mqtt.begin(ip, mqttPort, Cfg.mqttUsername, Cfg.mqttPassword);
   } else {
-    Serial.printf("[HASS] Connecting to MQTT broker %s without authentication\n",
-                  Cfg.mqttBrokerIp);
-    mqtt.begin(ip);
+    Serial.printf("[HASS] Connecting to MQTT broker %s:%d without authentication\n",
+                  Cfg.mqttBrokerIp, mqttPort);
+    mqtt.begin(ip, mqttPort);
   }
 
-  vTaskDelay(1000 * 30 / portTICK_PERIOD_MS);
+  // Start MQTT loop immediately to publish discovery messages
+  Serial.println("[HASS] Starting MQTT loop and publishing discovery...");
+
+  // Run initial loops to publish discovery and establish connection
+  for (int i = 0; i < 50; i++) {
+    mqtt.loop();
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+  }
+
+  Serial.println("[HASS] Discovery published, entering main loop.");
 
   while (1) {
     loop();
+    vTaskDelay(100 / portTICK_PERIOD_MS); // Small delay to prevent task starvation
   }
 
   Serial.println("[HASS] Task exited.");
@@ -130,12 +141,14 @@ void task(void *pvParameters) {
 };
 
 void loop() {
-  static uint32_t previousMillis;
+  static uint32_t previousMillis = 0;
+  static bool firstRun = true;
   uint32_t currentMillis = millis();
 
-  // Every 5 seconds
-  if (currentMillis - previousMillis >= 1000 * 5) {
+  // Publish initial values immediately, then every 5 seconds
+  if (firstRun || (currentMillis - previousMillis >= 1000 * 5)) {
     previousMillis = currentMillis;
+    firstRun = false;
 
 #ifdef DEBUG
     Serial.println("[HASS] Publishing sensor updates.");
@@ -155,6 +168,11 @@ void loop() {
     bmsWarningSensor.setValue(buf);
     sprintf(buf, "%d", Ess.bmsError);
     bmsErrorSensor.setValue(buf);
+
+#ifdef DEBUG
+    Serial.printf("[HASS] Published: SOC=%d%%, SOH=%d%%, V=%.2f, I=%.1f, T=%.1f\n",
+                  Ess.charge, Ess.health, Ess.voltage, Ess.current, Ess.temperature);
+#endif
   }
 
   mqtt.loop();
