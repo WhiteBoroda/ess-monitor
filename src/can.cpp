@@ -14,6 +14,11 @@ namespace CAN {
 MCP_CAN can(CS_PIN);
 portMUX_TYPE stateMux = portMUX_INITIALIZER_UNLOCKED;
 
+// Keep-alive monitoring
+static uint32_t keepAliveCounter = 0;
+static uint32_t keepAliveFailures = 0;
+static uint32_t lastKeepAliveMillis = 0;
+
 void begin(uint8_t core, uint8_t priority);
 void task(void *pvParameters);
 void loop();
@@ -37,6 +42,7 @@ void task(void *pvParameters) {
   if (initCAN()) {
     while (1) {
       loop();
+      vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay to prevent WDT
     }
   }
 
@@ -117,13 +123,34 @@ void readCAN() {
 
 void writeCAN() {
   DataFrame chargeFrame = getChargeDataFrame();
+  byte sendStatus;
 
-  // logWriteDataFrame((DataFrame *)&DF_35E);
-  can.sendMsgBuf(DF_35E.id, DF_35E.dlc, (uint8_t *)DF_35E.data);
+  // Send 0x35E - Protocol ID
+  sendStatus = can.sendMsgBuf(DF_35E.id, DF_35E.dlc, (uint8_t *)DF_35E.data);
+
+  // Send 0x305 - KEEP-ALIVE (CRITICAL!)
   logWriteDataFrame((DataFrame *)&DF_305);
-  can.sendMsgBuf(DF_305.id, DF_305.dlc, (uint8_t *)DF_305.data);
-  // logWriteDataFrame(&chargeFrame);
+  sendStatus = can.sendMsgBuf(DF_305.id, DF_305.dlc, (uint8_t *)DF_305.data);
+
+  if (sendStatus == CAN_OK) {
+    keepAliveCounter++;
+    lastKeepAliveMillis = millis();
+#ifdef DEBUG
+    Serial.printf("[CAN] Keep-alive sent successfully. Counter: %lu\n", keepAliveCounter);
+#endif
+  } else {
+    keepAliveFailures++;
+    Serial.printf("[CAN] ⚠️ KEEP-ALIVE SEND FAILED! Failures: %lu\n", keepAliveFailures);
+  }
+
+  // Send 0x35C - Charge control
   can.sendMsgBuf(chargeFrame.id, chargeFrame.dlc, chargeFrame.data);
+
+  // Check for missed keep-alives (safety check)
+  uint32_t timeSinceLastKeepAlive = millis() - lastKeepAliveMillis;
+  if (timeSinceLastKeepAlive > 2000) {
+    Serial.printf("[CAN] ⚠️ WARNING: %lu ms since last successful keep-alive!\n", timeSinceLastKeepAlive);
+  }
 }
 
 void logReadDataFrame(DataFrame *f) {
@@ -192,6 +219,21 @@ uint8_t getChargeControlByte() {
 DataFrame getChargeDataFrame() {
   DataFrame f = {0x35c, 2, {getChargeControlByte(), 0x00}};
   return f;
+}
+
+uint32_t getKeepAliveCounter() {
+  return keepAliveCounter;
+}
+
+uint32_t getKeepAliveFailures() {
+  return keepAliveFailures;
+}
+
+uint32_t getTimeSinceLastKeepAlive() {
+  if (lastKeepAliveMillis == 0) {
+    return 0;
+  }
+  return millis() - lastKeepAliveMillis;
 }
 
 } // namespace CAN

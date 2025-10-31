@@ -1,4 +1,5 @@
 #include "web.h"
+#include "can.h"
 #include "types.h"
 #include <GyverPortal.h>
 #include <HardwareSerial.h>
@@ -44,10 +45,10 @@ void buildPortal() {
   GP.setTimeout(1000);
   GP.ONLINE_CHECK(10000);
   GP.UPDATE("state.charge,state.health,state.voltage,state.current,state."
-            "temperature,state.limits",
+            "temperature,state.limits,can.keepalive,can.failures,can.lasttime",
             3000);
   GP.PAGE_TITLE(Cfg.hostname);
-  GP.NAV_TABS("ESS,WiFi,Telegram,MQTT,System");
+  GP.NAV_TABS("ESS,WiFi,Telegram,MQTT,Relay,System");
   // Status tab
   GP.NAV_BLOCK_BEGIN();
   GP.GRID_BEGIN();
@@ -130,9 +131,52 @@ void buildPortal() {
   GP.SUBMIT("Save and reboot");
   GP.FORM_END();
   GP.NAV_BLOCK_END();
+  // Relay settings tab
+  GP.NAV_BLOCK_BEGIN();
+  GP.FORM_BEGIN("/relay");
+  GP.BOX_BEGIN();
+  GP.SWITCH("relay.enabled", Cfg.relayEnabled);
+  GP.LABEL("Enable relay control for battery restart");
+  GP.BOX_END();
+  GP.LABEL("GPIO Pin (ESP32)");
+  char relayPinBuf[4];
+  itoa(Cfg.relayPin, relayPinBuf, 10);
+  GP.TEXT("relay.pin", "", relayPinBuf, "", sizeof(relayPinBuf));
+  GP.LABEL("Pulse duration in milliseconds");
+  char relayPulseBuf[6];
+  itoa(Cfg.relayPulseMs, relayPulseBuf, 10);
+  GP.TEXT("relay.pulse_ms", "", relayPulseBuf, "", sizeof(relayPulseBuf));
+  GP.HR();
+  GP.LABEL("⚠️ WARNING: Connect relay in parallel with BMS power button!");
+  GP.LABEL("See RELAY_INSTALLATION.md for detailed instructions.");
+  GP.BREAK();
+  GP.SUBMIT("Save and reboot");
+  GP.FORM_END();
+  GP.NAV_BLOCK_END();
   // System tab
   GP.NAV_BLOCK_BEGIN();
   GP.SYSTEM_INFO();
+  GP.HR();
+  GP.BLOCK_BEGIN(GP_THIN, "", "CAN Bus Status");
+  GP.TABLE_BEGIN();
+  GP.TR();
+  GP.TD(GP_LEFT);
+  GP.PLAIN(F("Keep-alive sent"));
+  GP.TD(GP_RIGHT);
+  GP.BOLD("-", "can.keepalive");
+  GP.TR();
+  GP.TD(GP_LEFT);
+  GP.PLAIN(F("Send failures"));
+  GP.TD(GP_RIGHT);
+  GP.BOLD("-", "can.failures");
+  GP.TR();
+  GP.TD(GP_LEFT);
+  GP.PLAIN(F("Last keep-alive"));
+  GP.TD(GP_RIGHT);
+  GP.BOLD("-", "can.lasttime");
+  GP.TABLE_END();
+  GP.BLOCK_END();
+  GP.HR();
   GP.OTA_FIRMWARE();
   GP.NAV_BLOCK_END();
   GP.BUILD_END();
@@ -159,6 +203,16 @@ void onPortalUpdate() {
     if (portal.update("state.limits")) {
       portal.answer(String(Ess.ratedChargeCurrent, 1) + " / " +
                     String(Ess.ratedDischargeCurrent, 1) + " A");
+    }
+    if (portal.update("can.keepalive")) {
+      portal.answer(String(CAN::getKeepAliveCounter()));
+    }
+    if (portal.update("can.failures")) {
+      portal.answer(String(CAN::getKeepAliveFailures()));
+    }
+    if (portal.update("can.lasttime")) {
+      uint32_t timeSince = CAN::getTimeSinceLastKeepAlive();
+      portal.answer(String(timeSince / 1000.0, 1) + " s ago");
     }
   }
   if (portal.form()) {
@@ -200,6 +254,28 @@ void onPortalUpdate() {
 
       Pref.putBool(CFG_MQQTT_ENABLED, Cfg.mqttEnabled);
       Pref.putString(CFG_MQQTT_BROKER_IP, Cfg.mqttBrokerIp);
+
+      Pref.end();
+      backToWebRoot();
+      needRestart = true;
+    } else if (portal.form("/relay")) {
+      portal.copyBool("relay.enabled", Cfg.relayEnabled);
+
+      int pin = (int)Cfg.relayPin;
+      portal.copyInt("relay.pin", pin);
+      if (pin < 0) pin = 0;
+      if (pin > 39) pin = 39; // ESP32 max GPIO
+      Cfg.relayPin = (uint8_t)pin;
+
+      int pulse = (int)Cfg.relayPulseMs;
+      portal.copyInt("relay.pulse_ms", pulse);
+      if (pulse < 100) pulse = 100;   // Min 100ms
+      if (pulse > 5000) pulse = 5000; // Max 5s
+      Cfg.relayPulseMs = (uint16_t)pulse;
+
+      Pref.putBool(CFG_RELAY_ENABLED, Cfg.relayEnabled);
+      Pref.putUChar(CFG_RELAY_PIN, Cfg.relayPin);
+      Pref.putUShort(CFG_RELAY_PULSE_MS, Cfg.relayPulseMs);
 
       Pref.end();
       backToWebRoot();

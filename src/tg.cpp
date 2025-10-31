@@ -1,4 +1,6 @@
 #include "tg.h"
+#include "can.h"
+#include "relay.h"
 #include "types.h"
 #include <FastBot.h>
 #include <HardwareSerial.h>
@@ -139,6 +141,51 @@ void onMessage(FB_msg &msg) {
 
   if (msg.text == "/status" || msg.text.startsWith("/status@")) {
     bot.sendMessage(getStatusMsg(), msg.chatID);
+  } else if (msg.text == "/canstatus" || msg.text.startsWith("/canstatus@")) {
+    uint32_t keepAliveCount = CAN::getKeepAliveCounter();
+    uint32_t keepAliveFailures = CAN::getKeepAliveFailures();
+    uint32_t timeSinceLast = CAN::getTimeSinceLastKeepAlive();
+
+    String canMsg = "📡 *Статус CAN шини*\n\n";
+    canMsg += "✅ Keep-alive відправлено: *" + String(keepAliveCount) + "*\n";
+    canMsg += "❌ Помилок відправки: *" + String(keepAliveFailures) + "*\n";
+    canMsg += "⏱️ Останній keep-alive: *" + String(timeSinceLast / 1000.0, 1) + "с* тому\n\n";
+
+    if (timeSinceLast > 5000) {
+      canMsg += "🚨 *УВАГА!* Давно не було keep-alive!\n";
+      canMsg += "Батарея може відключитися через 20 хв без keep-alive.\n";
+    } else if (timeSinceLast > 2000) {
+      canMsg += "⚠️ Затримка з відправкою keep-alive.\n";
+    } else {
+      canMsg += "🟢 Keep-alive працює нормально.\n";
+    }
+
+    if (keepAliveFailures > 0) {
+      canMsg += "\n⚠️ Виявлено " + String(keepAliveFailures) + " помилок відправки!\n";
+      canMsg += "Можливо проблема з CAN шиною або MCP2515.\n";
+    }
+
+    bot.sendMessage(canMsg, msg.chatID);
+  } else if (msg.text == "/restart" || msg.text.startsWith("/restart@")) {
+    if (RELAY::isEnabled()) {
+      bot.sendMessage("🔄 *Запускаю процедуру перезапуску батареї...*\n\n"
+                      "Реле активовано на " + String(Cfg.relayPulseMs) + "мс.\n"
+                      "Імітація натискання кнопки включення BMS.", msg.chatID);
+      RELAY::triggerPulse();
+      bot.sendMessage("✅ *Імпульс відправлено.*\n\n"
+                      "Якщо батарея не ввімкнеться, перевірте:\n"
+                      "• Підключення реле до кнопки BMS\n"
+                      "• Стан AUX Power Switch (має бути ON)\n"
+                      "• Стан Circuit Breaker\n\n"
+                      "Детальніше: BATTERY_RESTART_GUIDE.md", msg.chatID);
+    } else {
+      bot.sendMessage("❌ *Функція перезапуску вимкнена.*\n\n"
+                      "Щоб увімкнути:\n"
+                      "1. Підпайте реле до кнопки BMS\n"
+                      "2. Підключіть реле до GPIO ESP32\n"
+                      "3. Увімкніть функцію у веб-інтерфейсі\n\n"
+                      "Детальніше: RELAY_INSTALLATION.md", msg.chatID);
+    }
   }
 }
 

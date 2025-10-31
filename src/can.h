@@ -26,6 +26,9 @@ const DataFrame DF_35A = {0x35a, 8};
 const DataFrame DF_379 = {0x379, 1, {0x7e}};
 
 void begin(uint8_t core, uint8_t priority);
+uint32_t getKeepAliveCounter();
+uint32_t getKeepAliveFailures();
+uint32_t getTimeSinceLastKeepAlive();
 
 } // namespace CAN
 
