@@ -127,6 +127,10 @@ void buildPortal() {
   GP.BOX_END();
   GP.LABEL("Broker IP address");
   GP.TEXT("mqtt.broker_ip", "", Cfg.mqttBrokerIp, "", sizeof(Cfg.mqttBrokerIp));
+  GP.LABEL("Port (default: 1883)");
+  char mqttPortBuf[6];
+  itoa(Cfg.mqttPort, mqttPortBuf, 10);
+  GP.TEXT("mqtt.port", "", mqttPortBuf, "", sizeof(mqttPortBuf));
   GP.LABEL("Username (optional)");
   GP.TEXT("mqtt.username", "", Cfg.mqttUsername, "", sizeof(Cfg.mqttUsername));
   GP.LABEL("Password (optional)");
@@ -255,6 +259,13 @@ void onPortalUpdate() {
       portal.copyBool("mqtt.enabled", Cfg.mqttEnabled);
       portal.copyStr("mqtt.broker_ip", Cfg.mqttBrokerIp,
                      sizeof(Cfg.mqttBrokerIp));
+
+      int port = (int)Cfg.mqttPort;
+      portal.copyInt("mqtt.port", port);
+      if (port < 1) port = 1;
+      if (port > 65535) port = 65535;
+      Cfg.mqttPort = (uint16_t)port;
+
       portal.copyStr("mqtt.username", Cfg.mqttUsername,
                      sizeof(Cfg.mqttUsername));
       portal.copyStr("mqtt.password", Cfg.mqttPassword,
@@ -262,6 +273,7 @@ void onPortalUpdate() {
 
       Pref.putBool(CFG_MQQTT_ENABLED, Cfg.mqttEnabled);
       Pref.putString(CFG_MQQTT_BROKER_IP, Cfg.mqttBrokerIp);
+      Pref.putUShort(CFG_MQQTT_PORT, Cfg.mqttPort);
       Pref.putString(CFG_MQQTT_USERNAME, Cfg.mqttUsername);
       Pref.putString(CFG_MQQTT_PASSWORD, Cfg.mqttPassword);
 
