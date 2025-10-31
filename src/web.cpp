@@ -1,4 +1,5 @@
 #include "web.h"
+#include "can.h"
 #include "types.h"
 #include <GyverPortal.h>
 #include <HardwareSerial.h>
@@ -44,7 +45,7 @@ void buildPortal() {
   GP.setTimeout(1000);
   GP.ONLINE_CHECK(10000);
   GP.UPDATE("state.charge,state.health,state.voltage,state.current,state."
-            "temperature,state.limits",
+            "temperature,state.limits,can.keepalive,can.failures,can.lasttime",
             3000);
   GP.PAGE_TITLE(Cfg.hostname);
   GP.NAV_TABS("ESS,WiFi,Telegram,MQTT,Relay,System");
@@ -155,6 +156,27 @@ void buildPortal() {
   // System tab
   GP.NAV_BLOCK_BEGIN();
   GP.SYSTEM_INFO();
+  GP.HR();
+  GP.BLOCK_BEGIN(GP_THIN, "", "CAN Bus Status");
+  GP.TABLE_BEGIN();
+  GP.TR();
+  GP.TD(GP_LEFT);
+  GP.PLAIN(F("Keep-alive sent"));
+  GP.TD(GP_RIGHT);
+  GP.BOLD("-", "can.keepalive");
+  GP.TR();
+  GP.TD(GP_LEFT);
+  GP.PLAIN(F("Send failures"));
+  GP.TD(GP_RIGHT);
+  GP.BOLD("-", "can.failures");
+  GP.TR();
+  GP.TD(GP_LEFT);
+  GP.PLAIN(F("Last keep-alive"));
+  GP.TD(GP_RIGHT);
+  GP.BOLD("-", "can.lasttime");
+  GP.TABLE_END();
+  GP.BLOCK_END();
+  GP.HR();
   GP.OTA_FIRMWARE();
   GP.NAV_BLOCK_END();
   GP.BUILD_END();
@@ -181,6 +203,16 @@ void onPortalUpdate() {
     if (portal.update("state.limits")) {
       portal.answer(String(Ess.ratedChargeCurrent, 1) + " / " +
                     String(Ess.ratedDischargeCurrent, 1) + " A");
+    }
+    if (portal.update("can.keepalive")) {
+      portal.answer(String(CAN::getKeepAliveCounter()));
+    }
+    if (portal.update("can.failures")) {
+      portal.answer(String(CAN::getKeepAliveFailures()));
+    }
+    if (portal.update("can.lasttime")) {
+      uint32_t timeSince = CAN::getTimeSinceLastKeepAlive();
+      portal.answer(String(timeSince / 1000.0, 1) + " s ago");
     }
   }
   if (portal.form()) {

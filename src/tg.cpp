@@ -1,4 +1,5 @@
 #include "tg.h"
+#include "can.h"
 #include "relay.h"
 #include "types.h"
 #include <FastBot.h>
@@ -140,6 +141,31 @@ void onMessage(FB_msg &msg) {
 
   if (msg.text == "/status" || msg.text.startsWith("/status@")) {
     bot.sendMessage(getStatusMsg(), msg.chatID);
+  } else if (msg.text == "/canstatus" || msg.text.startsWith("/canstatus@")) {
+    uint32_t keepAliveCount = CAN::getKeepAliveCounter();
+    uint32_t keepAliveFailures = CAN::getKeepAliveFailures();
+    uint32_t timeSinceLast = CAN::getTimeSinceLastKeepAlive();
+
+    String canMsg = "📡 *Статус CAN шини*\n\n";
+    canMsg += "✅ Keep-alive відправлено: *" + String(keepAliveCount) + "*\n";
+    canMsg += "❌ Помилок відправки: *" + String(keepAliveFailures) + "*\n";
+    canMsg += "⏱️ Останній keep-alive: *" + String(timeSinceLast / 1000.0, 1) + "с* тому\n\n";
+
+    if (timeSinceLast > 5000) {
+      canMsg += "🚨 *УВАГА!* Давно не було keep-alive!\n";
+      canMsg += "Батарея може відключитися через 20 хв без keep-alive.\n";
+    } else if (timeSinceLast > 2000) {
+      canMsg += "⚠️ Затримка з відправкою keep-alive.\n";
+    } else {
+      canMsg += "🟢 Keep-alive працює нормально.\n";
+    }
+
+    if (keepAliveFailures > 0) {
+      canMsg += "\n⚠️ Виявлено " + String(keepAliveFailures) + " помилок відправки!\n";
+      canMsg += "Можливо проблема з CAN шиною або MCP2515.\n";
+    }
+
+    bot.sendMessage(canMsg, msg.chatID);
   } else if (msg.text == "/restart" || msg.text.startsWith("/restart@")) {
     if (RELAY::isEnabled()) {
       bot.sendMessage("🔄 *Запускаю процедуру перезапуску батареї...*\n\n"
