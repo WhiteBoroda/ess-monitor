@@ -51,6 +51,8 @@ void task(void *pvParameters) {
 void loop() {
   static int16_t previousCurrent = 0;
   static State previousState = State::Undef;
+  static uint8_t previousBmsError = 0;
+  static uint8_t previousBmsWarning = 0;
   static uint32_t previousMillis;
   uint32_t currentMillis = millis();
 
@@ -58,6 +60,46 @@ void loop() {
   if (currentMillis - previousMillis >= 1000 * 5) {
     previousMillis = currentMillis;
 
+    // Check for BMS errors and warnings
+    if (Ess.bmsError != previousBmsError) {
+      if (Ess.bmsError > 0) {
+        String errorMsg = "🚨 *КРИТИЧНА ПОМИЛКА БАТАРЕЇ!*\n\n";
+        errorMsg += "⚠️ Код помилки: *" + String(Ess.bmsError) + "*\n";
+        errorMsg += "Батарея може вимкнутися!\n\n";
+        errorMsg += "Поточний стан:\n";
+        errorMsg += "🔋 Заряд: *" + String(Ess.charge) + "%*\n";
+        errorMsg += "⚡️ Напруга: *" + String(Ess.voltage, 2) + "V*\n";
+        errorMsg += "🔌 Струм: *" + String(Ess.current, 1) + "A*\n";
+        errorMsg += "🌡️ Температура: *" + String(Ess.temperature, 1) + "°C*\n";
+        bot.sendMessage(errorMsg);
+      } else if (previousBmsError > 0) {
+        // Error cleared
+        bot.sendMessage("✅ *Критична помилка батареї усунена.*\n\nКод помилки: " +
+                        String(previousBmsError) + " → 0");
+      }
+      previousBmsError = Ess.bmsError;
+    }
+
+    if (Ess.bmsWarning != previousBmsWarning) {
+      if (Ess.bmsWarning > 0) {
+        String warningMsg = "⚠️ *ПОПЕРЕДЖЕННЯ БАТАРЕЇ*\n\n";
+        warningMsg += "Код попередження: *" + String(Ess.bmsWarning) + "*\n";
+        warningMsg += "Можливі причини: висока температура, напруга або розбалансування.\n\n";
+        warningMsg += "Поточний стан:\n";
+        warningMsg += "🔋 Заряд: *" + String(Ess.charge) + "%*\n";
+        warningMsg += "⚡️ Напруга: *" + String(Ess.voltage, 2) + "V*\n";
+        warningMsg += "🔌 Струм: *" + String(Ess.current, 1) + "A*\n";
+        warningMsg += "🌡️ Температура: *" + String(Ess.temperature, 1) + "°C*\n";
+        bot.sendMessage(warningMsg);
+      } else if (previousBmsWarning > 0) {
+        // Warning cleared
+        bot.sendMessage("✅ *Попередження батареї усунене.*\n\nКод попередження: " +
+                        String(previousBmsWarning) + " → 0");
+      }
+      previousBmsWarning = Ess.bmsWarning;
+    }
+
+    // Check for state changes
     if (Ess.current > (int)Cfg.tgCurrentThreshold) {
       state = State::Charging;
     } else if (Ess.current < -(int)Cfg.tgCurrentThreshold) {
@@ -131,6 +173,19 @@ String getStatusMsg() {
        String(Ess.ratedVoltage, 2) + "V*\n";
   s += "🌡️ Температура батареї: *" + String(Ess.temperature, 1) + "°C*\n";
   s += "🍀 Здоров'я батареї: *" + String(Ess.health) + "%*\n";
+
+  // BMS errors and warnings
+  if (Ess.bmsError > 0 || Ess.bmsWarning > 0) {
+    s += "\n⚠️ *УВАГА!*\n";
+    if (Ess.bmsError > 0) {
+      s += "🚨 Критична помилка: *" + String(Ess.bmsError) + "*\n";
+    }
+    if (Ess.bmsWarning > 0) {
+      s += "⚠️ Попередження: *" + String(Ess.bmsWarning) + "*\n";
+    }
+  } else {
+    s += "\n✅ Помилок немає\n";
+  }
 
 #ifdef DEBUG
   Serial.println(s);
