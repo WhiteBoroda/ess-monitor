@@ -1,4 +1,5 @@
 #include "hass.h"
+#include "relay.h"
 
 extern Config Cfg;
 extern volatile EssStatus Ess;
@@ -20,6 +21,7 @@ HASensorNumber ratedDischargeCurrentSensor("rated_discharge_current",
 HASensorNumber temperatureSensor("temperature", HASensorNumber::PrecisionP1);
 HASensor bmsWarningSensor("bms_warning");
 HASensor bmsErrorSensor("bms_error");
+HAButton restartButton("battery_restart");
 
 void begin(uint8_t core, uint8_t priority);
 void task(void *pvParameters);
@@ -93,6 +95,15 @@ void task(void *pvParameters) {
   bmsErrorSensor.setIcon("mdi:alert-octagon");
   bmsErrorSensor.setDeviceClass("enum");
   bmsErrorSensor.setName("BMS error");
+
+  if (RELAY::isEnabled()) {
+    restartButton.setIcon("mdi:restart");
+    restartButton.setName("Battery Restart");
+    restartButton.onCommand([](HAButton* sender) {
+      Serial.println("[HASS] Battery restart button pressed.");
+      RELAY::triggerPulse();
+    });
+  }
 
   IPAddress ip;
   ip.fromString(Cfg.mqttBrokerIp);

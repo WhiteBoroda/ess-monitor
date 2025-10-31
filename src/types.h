@@ -19,6 +19,9 @@
 #define CFG_TG_BOT_TOKEN "tg.bot_token"
 #define CFG_TG_CHAT_ID "tg.chat_id"
 #define CFG_TG_CURRENT_THRESHOLD "tg.amps"
+#define CFG_RELAY_ENABLED "relay.enabled"
+#define CFG_RELAY_PIN "relay.pin"
+#define CFG_RELAY_PULSE_MS "relay.pulse_ms"
 
 extern bool needRestart;
 
@@ -39,6 +42,10 @@ typedef struct Config {
   char tgBotToken[64];
   char tgChatID[32];
   uint8_t tgCurrentThreshold = 2;
+
+  bool relayEnabled = false;
+  uint8_t relayPin = 13;          // GPIO13 by default (free pin on ESP32)
+  uint16_t relayPulseMs = 500;    // 500ms pulse to simulate button press
 
 } Config;
 

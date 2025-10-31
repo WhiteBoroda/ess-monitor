@@ -1,4 +1,5 @@
 #include "tg.h"
+#include "relay.h"
 #include "types.h"
 #include <FastBot.h>
 #include <HardwareSerial.h>
@@ -139,6 +140,26 @@ void onMessage(FB_msg &msg) {
 
   if (msg.text == "/status" || msg.text.startsWith("/status@")) {
     bot.sendMessage(getStatusMsg(), msg.chatID);
+  } else if (msg.text == "/restart" || msg.text.startsWith("/restart@")) {
+    if (RELAY::isEnabled()) {
+      bot.sendMessage("🔄 *Запускаю процедуру перезапуску батареї...*\n\n"
+                      "Реле активовано на " + String(Cfg.relayPulseMs) + "мс.\n"
+                      "Імітація натискання кнопки включення BMS.", msg.chatID);
+      RELAY::triggerPulse();
+      bot.sendMessage("✅ *Імпульс відправлено.*\n\n"
+                      "Якщо батарея не ввімкнеться, перевірте:\n"
+                      "• Підключення реле до кнопки BMS\n"
+                      "• Стан AUX Power Switch (має бути ON)\n"
+                      "• Стан Circuit Breaker\n\n"
+                      "Детальніше: BATTERY_RESTART_GUIDE.md", msg.chatID);
+    } else {
+      bot.sendMessage("❌ *Функція перезапуску вимкнена.*\n\n"
+                      "Щоб увімкнути:\n"
+                      "1. Підпайте реле до кнопки BMS\n"
+                      "2. Підключіть реле до GPIO ESP32\n"
+                      "3. Увімкніть функцію у веб-інтерфейсі\n\n"
+                      "Детальніше: RELAY_INSTALLATION.md", msg.chatID);
+    }
   }
 }
 
