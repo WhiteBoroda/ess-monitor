@@ -8,6 +8,134 @@ ModuleNotFoundError: No module named 'intelhex'
 
 Эта ошибка возникает когда в Python окружении PlatformIO отсутствует модуль `intelhex`, необходимый для esptool.
 
+## ⚠️ ВАЖНО: Если у вас "No module named pip"
+
+Если при проверке вы получили:
+```
+C:\Users\yv\.platformio\python3\python.exe: No module named pip
+```
+
+Это означает что **Python окружение PlatformIO повреждено**. Переходите сразу к **"Решение для поврежденного окружения"** ниже.
+
+---
+
+## 🆘 Решение для поврежденного окружения (если нет pip)
+
+### Вариант A: Переустановка PlatformIO (РЕКОМЕНДУЕТСЯ)
+
+**Шаг 1:** Закройте VS Code полностью
+
+**Шаг 2:** Удалите папку PlatformIO (PowerShell с правами администратора):
+
+```powershell
+Remove-Item -Recurse -Force $env:USERPROFILE\.platformio
+```
+
+Или вручную удалите папку:
+```
+C:\Users\yv\.platformio
+```
+
+**Шаг 3:** Переустановите PlatformIO через системный Python:
+
+```powershell
+# Удалить старую версию
+pip uninstall platformio
+
+# Установить заново
+pip install platformio
+```
+
+**Шаг 4:** Перезапустите VS Code
+
+**Шаг 5:** Откройте проект и PlatformIO автоматически установит всё необходимое
+
+**Шаг 6:** Попробуйте собрать проект:
+
+```bash
+pio run -e dev
+```
+
+---
+
+### Вариант B: Использование системного Python
+
+Если у вас установлен системный Python с pip:
+
+**Шаг 1:** Найдите системный Python:
+
+```powershell
+where python
+```
+
+**Шаг 2:** Установите intelhex в системный Python:
+
+```powershell
+python -m pip install intelhex
+```
+
+**Шаг 3:** Модифицируйте `platformio.ini`:
+
+Добавьте в секцию `[env]`:
+
+```ini
+[env]
+platform = espressif32
+board = esp32dev
+framework = arduino
+extra_scripts = pre:fix_intelhex.py
+```
+
+**Шаг 4:** Создайте файл `fix_intelhex.py` в корне проекта:
+
+```python
+Import("env")
+import sys
+import os
+
+# Добавить системный Python в путь поиска модулей
+sys.path.insert(0, os.path.join(os.path.expanduser("~"), "AppData", "Local", "Programs", "Python", "Python312", "Lib", "site-packages"))
+```
+
+(Измените путь на свой путь к Python)
+
+---
+
+### Вариант C: Ручная установка pip в PlatformIO Python
+
+**Шаг 1:** Скачайте get-pip.py:
+
+```powershell
+Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -OutFile get-pip.py
+```
+
+**Шаг 2:** Установите pip в Python от PlatformIO:
+
+```powershell
+C:\Users\yv\.platformio\python3\python.exe get-pip.py
+```
+
+**Шаг 3:** Проверьте что pip установлен:
+
+```powershell
+C:\Users\yv\.platformio\python3\python.exe -m pip --version
+```
+
+**Шаг 4:** Установите intelhex:
+
+```powershell
+C:\Users\yv\.platformio\python3\python.exe -m pip install intelhex
+```
+
+**Шаг 5:** Соберите проект:
+
+```bash
+pio run -t clean
+pio run -e dev
+```
+
+---
+
 ---
 
 ## ✅ Решение 1: Установка intelhex (Рекомендуется)
