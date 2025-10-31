@@ -107,7 +107,17 @@ void task(void *pvParameters) {
 
   IPAddress ip;
   ip.fromString(Cfg.mqttBrokerIp);
-  mqtt.begin(ip);
+
+  // Use authentication if username and password are provided
+  if (strlen(Cfg.mqttUsername) > 0 && strlen(Cfg.mqttPassword) > 0) {
+    Serial.printf("[HASS] Connecting to MQTT broker %s with authentication (user: %s)\n",
+                  Cfg.mqttBrokerIp, Cfg.mqttUsername);
+    mqtt.begin(ip, Cfg.mqttUsername, Cfg.mqttPassword);
+  } else {
+    Serial.printf("[HASS] Connecting to MQTT broker %s without authentication\n",
+                  Cfg.mqttBrokerIp);
+    mqtt.begin(ip);
+  }
 
   vTaskDelay(1000 * 30 / portTICK_PERIOD_MS);
 

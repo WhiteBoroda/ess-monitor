@@ -82,6 +82,10 @@ void initConfig() {
   Cfg.mqttEnabled = Pref.getBool(CFG_MQQTT_ENABLED, Cfg.mqttEnabled);
   Pref.getString(CFG_MQQTT_BROKER_IP, Cfg.mqttBrokerIp,
                  sizeof(Cfg.mqttBrokerIp));
+  Pref.getString(CFG_MQQTT_USERNAME, Cfg.mqttUsername,
+                 sizeof(Cfg.mqttUsername));
+  Pref.getString(CFG_MQQTT_PASSWORD, Cfg.mqttPassword,
+                 sizeof(Cfg.mqttPassword));
 
   Cfg.tgEnabled = Pref.getBool(CFG_TG_ENABLED, Cfg.tgEnabled);
   Pref.getString(CFG_TG_BOT_TOKEN, Cfg.tgBotToken, sizeof(Cfg.tgBotToken));

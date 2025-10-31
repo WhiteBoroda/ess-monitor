@@ -15,6 +15,8 @@
 #define CFG_INVERTER_DISCHARGE_LIMIT "inverter.discharge_limit"
 #define CFG_MQQTT_ENABLED "mqtt.enabled"
 #define CFG_MQQTT_BROKER_IP "mqtt.broker_ip"
+#define CFG_MQQTT_USERNAME "mqtt.username"
+#define CFG_MQQTT_PASSWORD "mqtt.password"
 #define CFG_TG_ENABLED "tg.enabled"
 #define CFG_TG_BOT_TOKEN "tg.bot_token"
 #define CFG_TG_CHAT_ID "tg.chat_id"
@@ -37,6 +39,8 @@ typedef struct Config {
 
   bool mqttEnabled = false;
   char mqttBrokerIp[16] = "192.168.0.100";
+  char mqttUsername[64] = "";
+  char mqttPassword[64] = "";
 
   bool tgEnabled = false;
   char tgBotToken[64];
