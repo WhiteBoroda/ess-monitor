@@ -107,17 +107,16 @@ void task(void *pvParameters) {
 
   IPAddress ip;
   ip.fromString(Cfg.mqttBrokerIp);
-  uint16_t mqttPort = 1883; // Standard MQTT port
 
   // Use authentication if username and password are provided
   if (strlen(Cfg.mqttUsername) > 0 && strlen(Cfg.mqttPassword) > 0) {
     Serial.printf("[HASS] Connecting to MQTT broker %s:%d with authentication (user: %s)\n",
-                  Cfg.mqttBrokerIp, mqttPort, Cfg.mqttUsername);
-    mqtt.begin(ip, mqttPort, Cfg.mqttUsername, Cfg.mqttPassword);
+                  Cfg.mqttBrokerIp, Cfg.mqttPort, Cfg.mqttUsername);
+    mqtt.begin(ip, Cfg.mqttPort, Cfg.mqttUsername, Cfg.mqttPassword);
   } else {
     Serial.printf("[HASS] Connecting to MQTT broker %s:%d without authentication\n",
-                  Cfg.mqttBrokerIp, mqttPort);
-    mqtt.begin(ip, mqttPort);
+                  Cfg.mqttBrokerIp, Cfg.mqttPort);
+    mqtt.begin(ip, Cfg.mqttPort);
   }
 
   Serial.println("[HASS] Waiting for MQTT connection...");
