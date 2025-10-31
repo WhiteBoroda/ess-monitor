@@ -127,6 +127,10 @@ void buildPortal() {
   GP.BOX_END();
   GP.LABEL("Broker IP address");
   GP.TEXT("mqtt.broker_ip", "", Cfg.mqttBrokerIp, "", sizeof(Cfg.mqttBrokerIp));
+  GP.LABEL("Username (optional)");
+  GP.TEXT("mqtt.username", "", Cfg.mqttUsername, "", sizeof(Cfg.mqttUsername));
+  GP.LABEL("Password (optional)");
+  GP.PASS("mqtt.password", "", Cfg.mqttPassword, "", sizeof(Cfg.mqttPassword));
   GP.BREAK();
   GP.SUBMIT("Save and reboot");
   GP.FORM_END();
@@ -251,9 +255,15 @@ void onPortalUpdate() {
       portal.copyBool("mqtt.enabled", Cfg.mqttEnabled);
       portal.copyStr("mqtt.broker_ip", Cfg.mqttBrokerIp,
                      sizeof(Cfg.mqttBrokerIp));
+      portal.copyStr("mqtt.username", Cfg.mqttUsername,
+                     sizeof(Cfg.mqttUsername));
+      portal.copyStr("mqtt.password", Cfg.mqttPassword,
+                     sizeof(Cfg.mqttPassword));
 
       Pref.putBool(CFG_MQQTT_ENABLED, Cfg.mqttEnabled);
       Pref.putString(CFG_MQQTT_BROKER_IP, Cfg.mqttBrokerIp);
+      Pref.putString(CFG_MQQTT_USERNAME, Cfg.mqttUsername);
+      Pref.putString(CFG_MQQTT_PASSWORD, Cfg.mqttPassword);
 
       Pref.end();
       backToWebRoot();
