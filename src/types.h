@@ -55,8 +55,8 @@ typedef struct Config {
   uint8_t relayPin = 13;          // GPIO13 by default (free pin on ESP32)
   uint16_t relayPulseMs = 500;    // 500ms pulse to simulate button press
 
-  bool watchdogEnabled = true;    // Enable Hardware Watchdog by default
-  uint8_t watchdogTimeout = 30;   // Watchdog timeout in seconds (default: 30s)
+  bool watchdogEnabled = false;   // Watchdog disabled by default (enable via web interface)
+  uint8_t watchdogTimeout = 60;   // Watchdog timeout in seconds (default: 60s)
 
 } Config;
 
