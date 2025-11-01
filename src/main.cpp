@@ -10,6 +10,7 @@
 #include <Preferences.h>
 #include <WiFi.h>
 #include <WiFiMulti.h>
+#include <esp_task_wdt.h>
 
 WiFiMulti wifiMulti;
 
@@ -47,11 +48,26 @@ void setup() {
   if (Cfg.relayEnabled) {
     RELAY::begin();
   }
+
+  // Initialize Hardware Watchdog Timer
+  if (Cfg.watchdogEnabled) {
+    Serial.printf("[MAIN] Enabling Hardware Watchdog Timer: %d seconds\n", Cfg.watchdogTimeout);
+    esp_task_wdt_init(Cfg.watchdogTimeout, true); // timeout in seconds, panic on timeout
+    esp_task_wdt_add(NULL); // Add current task (loop task) to WDT
+    Serial.println("[MAIN] ✓ Watchdog Timer enabled");
+  } else {
+    Serial.println("[MAIN] Watchdog Timer disabled by configuration");
+  }
 }
 
 void loop() {
   static uint32_t previousMillis;
   uint32_t currentMillis = millis();
+
+  // Reset Watchdog Timer to prevent reboot
+  if (Cfg.watchdogEnabled) {
+    esp_task_wdt_reset();
+  }
 
   // WiFi reconnection
   wifiMulti.run();
@@ -59,7 +75,7 @@ void loop() {
   // Every 5 seconds
   if (currentMillis - previousMillis >= 5000 * 1) {
     previousMillis = currentMillis;
-  
+
     logBatteryState();
     //SoftReset
     if (needRestart){ESP.restart();};
@@ -96,6 +112,9 @@ void initConfig() {
   Cfg.relayEnabled = Pref.getBool(CFG_RELAY_ENABLED, Cfg.relayEnabled);
   Cfg.relayPin = Pref.getUChar(CFG_RELAY_PIN, Cfg.relayPin);
   Cfg.relayPulseMs = Pref.getUShort(CFG_RELAY_PULSE_MS, Cfg.relayPulseMs);
+
+  Cfg.watchdogEnabled = Pref.getBool(CFG_WATCHDOG_ENABLED, Cfg.watchdogEnabled);
+  Cfg.watchdogTimeout = Pref.getUChar(CFG_WATCHDOG_TIMEOUT, Cfg.watchdogTimeout);
 }
 
 bool initWiFi() {
