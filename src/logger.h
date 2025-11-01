@@ -2,11 +2,12 @@
 #define _LOGGER_H_
 
 #include <Arduino.h>
+#include <stdarg.h>
 
 namespace Logger {
 
 // Log levels matching syslog severity
-enum Level {
+typedef enum {
   EMERGENCY = 0,  // System is unusable
   ALERT = 1,      // Action must be taken immediately
   CRITICAL = 2,   // Critical conditions
@@ -15,7 +16,7 @@ enum Level {
   NOTICE = 5,     // Normal but significant condition
   INFO = 6,       // Informational messages
   DEBUG = 7       // Debug-level messages
-};
+} Level;
 
 void begin();
 void setEnabled(bool enabled);
