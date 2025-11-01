@@ -86,9 +86,7 @@ void buildPortal() {
   // WiFi settings tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/wifi");
-  GP.LABEL("Connect to existing network");
-  GP.SWITCH("wifi.sta", Cfg.wifiSTA);
-  GP.BREAK();
+  GP.SWITCH("wifi.sta", Cfg.wifiSTA, "Connect to existing network");
   GP.LABEL("SSID");
   GP.TEXT("wifi.ssid", "", Cfg.wifiSSID, "", 128);
   GP.LABEL("Password");
@@ -100,9 +98,7 @@ void buildPortal() {
   // Telegram settings tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/tg");
-  GP.LABEL("Enable Telegram notifications");
-  GP.SWITCH("tg.enabled", Cfg.tgEnabled);
-  GP.BREAK();
+  GP.SWITCH("tg.enabled", Cfg.tgEnabled, "Enable Telegram notifications");
   GP.LABEL("Bot token");
   GP.PASS("tg.bot_token", "", Cfg.tgBotToken, "", sizeof(Cfg.tgBotToken));
   GP.LABEL("Chat ID");
@@ -118,9 +114,7 @@ void buildPortal() {
   // MQTT
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/mqtt");
-  GP.LABEL("Enable MQTT");
-  GP.SWITCH("mqtt.enabled", Cfg.mqttEnabled);
-  GP.BREAK();
+  GP.SWITCH("mqtt.enabled", Cfg.mqttEnabled, "Enable MQTT");
   GP.LABEL("Broker IP address");
   GP.TEXT("mqtt.broker_ip", "", Cfg.mqttBrokerIp, "", sizeof(Cfg.mqttBrokerIp));
   GP.LABEL("Port (default: 1883)");
@@ -138,9 +132,7 @@ void buildPortal() {
   // Relay settings tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/relay");
-  GP.LABEL("Enable relay control for battery restart");
-  GP.SWITCH("relay.enabled", Cfg.relayEnabled);
-  GP.BREAK();
+  GP.SWITCH("relay.enabled", Cfg.relayEnabled, "Enable relay control for battery restart");
   GP.LABEL("GPIO Pin (ESP32)");
   char relayPinBuf[4];
   itoa(Cfg.relayPin, relayPinBuf, 10);
@@ -159,9 +151,7 @@ void buildPortal() {
   // Watchdog tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/watchdog");
-  GP.LABEL("Enable Hardware Watchdog Timer");
-  GP.SWITCH("watchdog.enabled", Cfg.watchdogEnabled);
-  GP.BREAK();
+  GP.SWITCH("watchdog.enabled", Cfg.watchdogEnabled, "Enable Hardware Watchdog Timer");
   GP.LABEL("Timeout in seconds (10-120)");
   char watchdogTimeoutBuf[4];
   itoa(Cfg.watchdogTimeout, watchdogTimeoutBuf, 10);
@@ -176,9 +166,7 @@ void buildPortal() {
   // Syslog tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/syslog");
-  GP.LABEL("Enable Syslog (network logging)");
-  GP.SWITCH("syslog.enabled", Cfg.syslogEnabled);
-  GP.BREAK();
+  GP.SWITCH("syslog.enabled", Cfg.syslogEnabled, "Enable Syslog (network logging)");
   GP.LABEL("Syslog server (IP or hostname)");
   GP.TEXT("syslog.server", "", Cfg.syslogServer, "", sizeof(Cfg.syslogServer));
   GP.LABEL("Port (default: 514)");
