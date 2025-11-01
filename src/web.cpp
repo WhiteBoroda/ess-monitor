@@ -49,7 +49,7 @@ void buildPortal() {
             "temperature,state.limits,can.keepalive,can.failures,can.lasttime",
             3000);
   GP.PAGE_TITLE(Cfg.hostname);
-  GP.NAV_TABS("ESS,WiFi,Telegram,MQTT,Relay,Watchdog,System");
+  GP.NAV_TABS("ESS,WiFi,Telegram,MQTT,Relay,Watchdog,Syslog,System");
   // Status tab
   GP.NAV_BLOCK_BEGIN();
   GP.GRID_BEGIN();
@@ -176,6 +176,27 @@ void buildPortal() {
   GP.HR();
   GP.LABEL("ℹ️ Watchdog automatically reboots ESP32 if it freezes.");
   GP.LABEL("Recommended: Enabled with 30 second timeout.");
+  GP.BREAK();
+  GP.SUBMIT("Save and reboot");
+  GP.FORM_END();
+  GP.NAV_BLOCK_END();
+  // Syslog tab
+  GP.NAV_BLOCK_BEGIN();
+  GP.FORM_BEGIN("/syslog");
+  GP.BOX_BEGIN();
+  GP.SWITCH("syslog.enabled", Cfg.syslogEnabled);
+  GP.LABEL("Enable Syslog (network logging)");
+  GP.BOX_END();
+  GP.LABEL("Syslog server (IP or hostname)");
+  GP.TEXT("syslog.server", "", Cfg.syslogServer, "", sizeof(Cfg.syslogServer));
+  GP.LABEL("Port (default: 514)");
+  char syslogPortBuf[6];
+  itoa(Cfg.syslogPort, syslogPortBuf, 10);
+  GP.TEXT("syslog.port", "", syslogPortBuf, "", sizeof(syslogPortBuf));
+  GP.HR();
+  GP.LABEL("ℹ️ Send logs to syslog server over network (UDP).");
+  GP.LABEL("Compatible with Home Assistant Syslog addon, rsyslog, etc.");
+  GP.LABEL("View logs in real-time on your syslog server.");
   GP.BREAK();
   GP.SUBMIT("Save and reboot");
   GP.FORM_END();
@@ -332,6 +353,24 @@ void onPortalUpdate() {
 
       Pref.putBool(CFG_WATCHDOG_ENABLED, Cfg.watchdogEnabled);
       Pref.putUChar(CFG_WATCHDOG_TIMEOUT, Cfg.watchdogTimeout);
+
+      Pref.end();
+      backToWebRoot();
+      needRestart = true;
+    } else if (portal.form("/syslog")) {
+      portal.copyBool("syslog.enabled", Cfg.syslogEnabled);
+      portal.copyStr("syslog.server", Cfg.syslogServer,
+                     sizeof(Cfg.syslogServer));
+
+      int port = (int)Cfg.syslogPort;
+      portal.copyInt("syslog.port", port);
+      if (port < 1) port = 1;
+      if (port > 65535) port = 65535;
+      Cfg.syslogPort = (uint16_t)port;
+
+      Pref.putBool(CFG_SYSLOG_ENABLED, Cfg.syslogEnabled);
+      Pref.putString(CFG_SYSLOG_SERVER, Cfg.syslogServer);
+      Pref.putUShort(CFG_SYSLOG_PORT, Cfg.syslogPort);
 
       Pref.end();
       backToWebRoot();

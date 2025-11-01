@@ -1,6 +1,7 @@
 #include "can.h"
 #include "hass.h"
 #include "lcd.h"
+#include "logger.h"
 #include "relay.h"
 #include "tg.h"
 #include "types.h"
@@ -33,6 +34,9 @@ void setup() {
   initConfig();
 
   if (initWiFi()) {
+    // Initialize Logger after WiFi connection
+    Logger::begin();
+
     if (Cfg.mqttEnabled) {
       HASS::begin(1, 1);
     }
@@ -115,6 +119,10 @@ void initConfig() {
 
   Cfg.watchdogEnabled = Pref.getBool(CFG_WATCHDOG_ENABLED, Cfg.watchdogEnabled);
   Cfg.watchdogTimeout = Pref.getUChar(CFG_WATCHDOG_TIMEOUT, Cfg.watchdogTimeout);
+
+  Cfg.syslogEnabled = Pref.getBool(CFG_SYSLOG_ENABLED, Cfg.syslogEnabled);
+  Pref.getString(CFG_SYSLOG_SERVER, Cfg.syslogServer, sizeof(Cfg.syslogServer));
+  Cfg.syslogPort = Pref.getUShort(CFG_SYSLOG_PORT, Cfg.syslogPort);
 }
 
 bool initWiFi() {
