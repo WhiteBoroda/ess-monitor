@@ -18,7 +18,7 @@ void begin() {
     syslog.server(Cfg.syslogServer, Cfg.syslogPort);
     syslog.deviceHostname(Cfg.hostname);
     syslog.appName("ess-monitor");
-    syslog.defaultPriority(LOG_INFO);
+    syslog.defaultPriority(6); // LOG_INFO
 
     enabled = true;
 
@@ -26,7 +26,7 @@ void begin() {
                   Cfg.syslogServer, Cfg.syslogPort);
 
     // Send startup message
-    syslog.logf(LOG_INFO, "ESS Monitor started, version: %s", VERSION);
+    syslog.logf(6, "ESS Monitor started, version: %s", VERSION); // LOG_INFO = 6
   } else {
     enabled = false;
     Serial.println("[LOGGER] Syslog disabled");
@@ -67,7 +67,7 @@ void emergency(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(EMERGENCY, tag, buffer);
+  log(LOG_EMERG, tag, buffer);
 }
 
 void alert(const char* tag, const char* format, ...) {
@@ -76,7 +76,7 @@ void alert(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(ALERT, tag, buffer);
+  log(LOG_ALERT, tag, buffer);
 }
 
 void critical(const char* tag, const char* format, ...) {
@@ -85,7 +85,7 @@ void critical(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(CRITICAL, tag, buffer);
+  log(LOG_CRIT, tag, buffer);
 }
 
 void error(const char* tag, const char* format, ...) {
@@ -94,7 +94,7 @@ void error(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(ERROR, tag, buffer);
+  log(LOG_ERR, tag, buffer);
 }
 
 void warning(const char* tag, const char* format, ...) {
@@ -103,7 +103,7 @@ void warning(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(WARNING, tag, buffer);
+  log(LOG_WARNING, tag, buffer);
 }
 
 void notice(const char* tag, const char* format, ...) {
@@ -112,7 +112,7 @@ void notice(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(NOTICE, tag, buffer);
+  log(LOG_NOTICE, tag, buffer);
 }
 
 void info(const char* tag, const char* format, ...) {
@@ -121,7 +121,7 @@ void info(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(INFO, tag, buffer);
+  log(LOG_INFO, tag, buffer);
 }
 
 void debug(const char* tag, const char* format, ...) {
@@ -130,7 +130,7 @@ void debug(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(DEBUG, tag, buffer);
+  log(LOG_DEBUG, tag, buffer);
 }
 
 } // namespace Logger
