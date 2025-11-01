@@ -57,7 +57,7 @@ void log(Level level, const char* tag, const char* format, ...) {
   if (isEnabled() && WiFi.status() == WL_CONNECTED) {
     char syslogMsg[384];
     snprintf(syslogMsg, sizeof(syslogMsg), "[%s] %s", tag, buffer);
-    syslog.log(level, syslogMsg);
+    syslog.log((uint16_t)level, syslogMsg);
   }
 }
 
