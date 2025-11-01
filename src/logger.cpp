@@ -67,7 +67,7 @@ void emergency(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LOG_EMERG, tag, buffer);
+  log(LEVEL_EMERG, tag, buffer);
 }
 
 void alert(const char* tag, const char* format, ...) {
@@ -76,7 +76,7 @@ void alert(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LOG_ALERT, tag, buffer);
+  log(LEVEL_ALERT, tag, buffer);
 }
 
 void critical(const char* tag, const char* format, ...) {
@@ -85,7 +85,7 @@ void critical(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LOG_CRIT, tag, buffer);
+  log(LEVEL_CRIT, tag, buffer);
 }
 
 void error(const char* tag, const char* format, ...) {
@@ -94,7 +94,7 @@ void error(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LOG_ERR, tag, buffer);
+  log(LEVEL_ERR, tag, buffer);
 }
 
 void warning(const char* tag, const char* format, ...) {
@@ -103,7 +103,7 @@ void warning(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LOG_WARNING, tag, buffer);
+  log(LEVEL_WARNING, tag, buffer);
 }
 
 void notice(const char* tag, const char* format, ...) {
@@ -112,7 +112,7 @@ void notice(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LOG_NOTICE, tag, buffer);
+  log(LEVEL_NOTICE, tag, buffer);
 }
 
 void info(const char* tag, const char* format, ...) {
@@ -121,7 +121,7 @@ void info(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LOG_INFO, tag, buffer);
+  log(LEVEL_INFO, tag, buffer);
 }
 
 void debug(const char* tag, const char* format, ...) {
@@ -130,7 +130,7 @@ void debug(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LOG_DEBUG, tag, buffer);
+  log(LEVEL_DEBUG, tag, buffer);
 }
 
 } // namespace Logger
