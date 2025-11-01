@@ -86,7 +86,12 @@ void buildPortal() {
   // WiFi settings tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/wifi");
-  GP.SWITCH("wifi.sta", Cfg.wifiSTA, "Connect to existing network");
+  GP.BLOCK_BEGIN();
+  GP.LABEL("Connect to existing network");
+  GP.BREAK();
+  GP.SWITCH("wifi.sta", Cfg.wifiSTA);
+  GP.BLOCK_END();
+  GP.BREAK();
   GP.LABEL("SSID");
   GP.TEXT("wifi.ssid", "", Cfg.wifiSSID, "", 128);
   GP.LABEL("Password");
@@ -98,7 +103,12 @@ void buildPortal() {
   // Telegram settings tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/tg");
-  GP.SWITCH("tg.enabled", Cfg.tgEnabled, "Enable Telegram notifications");
+  GP.BLOCK_BEGIN();
+  GP.LABEL("Enable Telegram notifications");
+  GP.BREAK();
+  GP.SWITCH("tg.enabled", Cfg.tgEnabled);
+  GP.BLOCK_END();
+  GP.BREAK();
   GP.LABEL("Bot token");
   GP.PASS("tg.bot_token", "", Cfg.tgBotToken, "", sizeof(Cfg.tgBotToken));
   GP.LABEL("Chat ID");
@@ -114,7 +124,12 @@ void buildPortal() {
   // MQTT
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/mqtt");
-  GP.SWITCH("mqtt.enabled", Cfg.mqttEnabled, "Enable MQTT");
+  GP.BLOCK_BEGIN();
+  GP.LABEL("Enable MQTT");
+  GP.BREAK();
+  GP.SWITCH("mqtt.enabled", Cfg.mqttEnabled);
+  GP.BLOCK_END();
+  GP.BREAK();
   GP.LABEL("Broker IP address");
   GP.TEXT("mqtt.broker_ip", "", Cfg.mqttBrokerIp, "", sizeof(Cfg.mqttBrokerIp));
   GP.LABEL("Port (default: 1883)");
@@ -132,7 +147,12 @@ void buildPortal() {
   // Relay settings tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/relay");
-  GP.SWITCH("relay.enabled", Cfg.relayEnabled, "Enable relay control for battery restart");
+  GP.BLOCK_BEGIN();
+  GP.LABEL("Enable relay control for battery restart");
+  GP.BREAK();
+  GP.SWITCH("relay.enabled", Cfg.relayEnabled);
+  GP.BLOCK_END();
+  GP.BREAK();
   GP.LABEL("GPIO Pin (ESP32)");
   char relayPinBuf[4];
   itoa(Cfg.relayPin, relayPinBuf, 10);
@@ -151,7 +171,12 @@ void buildPortal() {
   // Watchdog tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/watchdog");
-  GP.SWITCH("watchdog.enabled", Cfg.watchdogEnabled, "Enable Hardware Watchdog Timer");
+  GP.BLOCK_BEGIN();
+  GP.LABEL("Enable Hardware Watchdog Timer");
+  GP.BREAK();
+  GP.SWITCH("watchdog.enabled", Cfg.watchdogEnabled);
+  GP.BLOCK_END();
+  GP.BREAK();
   GP.LABEL("Timeout in seconds (10-120)");
   char watchdogTimeoutBuf[4];
   itoa(Cfg.watchdogTimeout, watchdogTimeoutBuf, 10);
@@ -166,7 +191,12 @@ void buildPortal() {
   // Syslog tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/syslog");
-  GP.SWITCH("syslog.enabled", Cfg.syslogEnabled, "Enable Syslog (network logging)");
+  GP.BLOCK_BEGIN();
+  GP.LABEL("Enable Syslog (network logging)");
+  GP.BREAK();
+  GP.SWITCH("syslog.enabled", Cfg.syslogEnabled);
+  GP.BLOCK_END();
+  GP.BREAK();
   GP.LABEL("Syslog server (IP or hostname)");
   GP.TEXT("syslog.server", "", Cfg.syslogServer, "", sizeof(Cfg.syslogServer));
   GP.LABEL("Port (default: 514)");
