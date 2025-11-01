@@ -7,15 +7,16 @@
 namespace Logger {
 
 // Log levels matching syslog severity
+// Using LEVEL_ prefix to avoid conflicts with Syslog library macros
 typedef enum {
-  LOG_EMERG = 0,   // System is unusable
-  LOG_ALERT = 1,   // Action must be taken immediately
-  LOG_CRIT = 2,    // Critical conditions
-  LOG_ERR = 3,     // Error conditions
-  LOG_WARNING = 4, // Warning conditions
-  LOG_NOTICE = 5,  // Normal but significant condition
-  LOG_INFO = 6,    // Informational messages
-  LOG_DEBUG = 7    // Debug-level messages
+  LEVEL_EMERG = 0,   // System is unusable
+  LEVEL_ALERT = 1,   // Action must be taken immediately
+  LEVEL_CRIT = 2,    // Critical conditions
+  LEVEL_ERR = 3,     // Error conditions
+  LEVEL_WARNING = 4, // Warning conditions
+  LEVEL_NOTICE = 5,  // Normal but significant condition
+  LEVEL_INFO = 6,    // Informational messages
+  LEVEL_DEBUG = 7    // Debug-level messages
 } Level;
 
 void begin();
