@@ -32,6 +32,7 @@ void task(void *pvParameters) {
 
   while (1) {
     loop();
+    vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay to prevent task starvation and WDT
   }
 
   Serial.println("[WEB] Task exited.");
@@ -48,7 +49,7 @@ void buildPortal() {
             "temperature,state.limits,can.keepalive,can.failures,can.lasttime",
             3000);
   GP.PAGE_TITLE(Cfg.hostname);
-  GP.NAV_TABS("ESS,WiFi,Telegram,MQTT,Relay,System");
+  GP.NAV_TABS("ESS,WiFi,Telegram,MQTT,Relay,Watchdog,Syslog,System");
   // Status tab
   GP.NAV_BLOCK_BEGIN();
   GP.GRID_BEGIN();
@@ -157,6 +158,45 @@ void buildPortal() {
   GP.HR();
   GP.LABEL("⚠️ WARNING: Connect relay in parallel with BMS power button!");
   GP.LABEL("See RELAY_INSTALLATION.md for detailed instructions.");
+  GP.BREAK();
+  GP.SUBMIT("Save and reboot");
+  GP.FORM_END();
+  GP.NAV_BLOCK_END();
+  // Watchdog tab
+  GP.NAV_BLOCK_BEGIN();
+  GP.FORM_BEGIN("/watchdog");
+  GP.BOX_BEGIN();
+  GP.SWITCH("watchdog.enabled", Cfg.watchdogEnabled);
+  GP.LABEL("Enable Hardware Watchdog Timer");
+  GP.BOX_END();
+  GP.LABEL("Timeout in seconds (10-120)");
+  char watchdogTimeoutBuf[4];
+  itoa(Cfg.watchdogTimeout, watchdogTimeoutBuf, 10);
+  GP.TEXT("watchdog.timeout", "", watchdogTimeoutBuf, "", sizeof(watchdogTimeoutBuf));
+  GP.HR();
+  GP.LABEL("ℹ️ Watchdog automatically reboots ESP32 if it freezes.");
+  GP.LABEL("Recommended: Enabled with 30 second timeout.");
+  GP.BREAK();
+  GP.SUBMIT("Save and reboot");
+  GP.FORM_END();
+  GP.NAV_BLOCK_END();
+  // Syslog tab
+  GP.NAV_BLOCK_BEGIN();
+  GP.FORM_BEGIN("/syslog");
+  GP.BOX_BEGIN();
+  GP.SWITCH("syslog.enabled", Cfg.syslogEnabled);
+  GP.LABEL("Enable Syslog (network logging)");
+  GP.BOX_END();
+  GP.LABEL("Syslog server (IP or hostname)");
+  GP.TEXT("syslog.server", "", Cfg.syslogServer, "", sizeof(Cfg.syslogServer));
+  GP.LABEL("Port (default: 514)");
+  char syslogPortBuf[6];
+  itoa(Cfg.syslogPort, syslogPortBuf, 10);
+  GP.TEXT("syslog.port", "", syslogPortBuf, "", sizeof(syslogPortBuf));
+  GP.HR();
+  GP.LABEL("ℹ️ Send logs to syslog server over network (UDP).");
+  GP.LABEL("Compatible with Home Assistant Syslog addon, rsyslog, etc.");
+  GP.LABEL("View logs in real-time on your syslog server.");
   GP.BREAK();
   GP.SUBMIT("Save and reboot");
   GP.FORM_END();
@@ -298,6 +338,39 @@ void onPortalUpdate() {
       Pref.putBool(CFG_RELAY_ENABLED, Cfg.relayEnabled);
       Pref.putUChar(CFG_RELAY_PIN, Cfg.relayPin);
       Pref.putUShort(CFG_RELAY_PULSE_MS, Cfg.relayPulseMs);
+
+      Pref.end();
+      backToWebRoot();
+      needRestart = true;
+    } else if (portal.form("/watchdog")) {
+      portal.copyBool("watchdog.enabled", Cfg.watchdogEnabled);
+
+      int timeout = (int)Cfg.watchdogTimeout;
+      portal.copyInt("watchdog.timeout", timeout);
+      if (timeout < 10) timeout = 10;     // Min 10 seconds
+      if (timeout > 120) timeout = 120;   // Max 120 seconds
+      Cfg.watchdogTimeout = (uint8_t)timeout;
+
+      Pref.putBool(CFG_WATCHDOG_ENABLED, Cfg.watchdogEnabled);
+      Pref.putUChar(CFG_WATCHDOG_TIMEOUT, Cfg.watchdogTimeout);
+
+      Pref.end();
+      backToWebRoot();
+      needRestart = true;
+    } else if (portal.form("/syslog")) {
+      portal.copyBool("syslog.enabled", Cfg.syslogEnabled);
+      portal.copyStr("syslog.server", Cfg.syslogServer,
+                     sizeof(Cfg.syslogServer));
+
+      int port = (int)Cfg.syslogPort;
+      portal.copyInt("syslog.port", port);
+      if (port < 1) port = 1;
+      if (port > 65535) port = 65535;
+      Cfg.syslogPort = (uint16_t)port;
+
+      Pref.putBool(CFG_SYSLOG_ENABLED, Cfg.syslogEnabled);
+      Pref.putString(CFG_SYSLOG_SERVER, Cfg.syslogServer);
+      Pref.putUShort(CFG_SYSLOG_PORT, Cfg.syslogPort);
 
       Pref.end();
       backToWebRoot();

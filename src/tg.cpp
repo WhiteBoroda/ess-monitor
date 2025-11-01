@@ -44,6 +44,7 @@ void task(void *pvParameters) {
 
   while (1) {
     loop();
+    vTaskDelay(100 / portTICK_PERIOD_MS); // Small delay to prevent task starvation and WDT
   }
 
   Serial.println("[TG] Task exited.");
