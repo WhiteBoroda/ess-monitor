@@ -30,6 +30,7 @@
 #define CFG_SYSLOG_ENABLED "syslog.enabled"
 #define CFG_SYSLOG_SERVER "syslog.server"
 #define CFG_SYSLOG_PORT "syslog.port"
+#define CFG_SYSLOG_LEVEL "syslog.level"
 
 extern bool needRestart;
 
@@ -64,6 +65,7 @@ typedef struct Config {
   bool syslogEnabled = false;     // Syslog disabled by default
   char syslogServer[64] = "";     // Syslog server IP or hostname
   uint16_t syslogPort = 514;      // Standard syslog UDP port
+  uint8_t syslogLevel = 6;        // Default: INFO level (0=EMERG, 7=DEBUG)
 
 } Config;
 

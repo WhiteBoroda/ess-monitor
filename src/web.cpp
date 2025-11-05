@@ -203,6 +203,8 @@ void buildPortal() {
   char syslogPortBuf[6];
   itoa(Cfg.syslogPort, syslogPortBuf, 10);
   GP.TEXT("syslog.port", "", syslogPortBuf, "", sizeof(syslogPortBuf));
+  GP.LABEL("Log level");
+  GP.SELECT("syslog.level", "EMERG,ALERT,CRIT,ERROR,WARNING,NOTICE,INFO,DEBUG", Cfg.syslogLevel);
   GP.HR();
   GP.LABEL("ℹ️ Send logs to syslog server over network (UDP).");
   GP.LABEL("Compatible with Home Assistant Syslog addon, rsyslog, etc.");
@@ -378,9 +380,16 @@ void onPortalUpdate() {
       if (port > 65535) port = 65535;
       Cfg.syslogPort = (uint16_t)port;
 
+      int level = (int)Cfg.syslogLevel;
+      portal.copyInt("syslog.level", level);
+      if (level < 0) level = 0;
+      if (level > 7) level = 7;
+      Cfg.syslogLevel = (uint8_t)level;
+
       Pref.putBool(CFG_SYSLOG_ENABLED, Cfg.syslogEnabled);
       Pref.putString(CFG_SYSLOG_SERVER, Cfg.syslogServer);
       Pref.putUShort(CFG_SYSLOG_PORT, Cfg.syslogPort);
+      Pref.putUChar(CFG_SYSLOG_LEVEL, Cfg.syslogLevel);
 
       Pref.end();
       backToWebRoot();

@@ -22,6 +22,8 @@ typedef enum {
 void begin();
 void setEnabled(bool enabled);
 bool isEnabled();
+void setLevel(Level level);
+Level getLevel();
 
 // Logging functions
 void log(Level level, const char* tag, const char* format, ...);

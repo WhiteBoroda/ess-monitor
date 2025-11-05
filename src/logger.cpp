@@ -11,8 +11,12 @@ namespace Logger {
 WiFiUDP udpClient;
 Syslog syslog(udpClient, SYSLOG_PROTO_IETF);
 bool enabled = false;
+Level currentLevel = LEVEL_INFO; // Default log level
 
 void begin() {
+  // Set log level from config
+  currentLevel = (Level)Cfg.syslogLevel;
+
   if (Cfg.syslogEnabled && strlen(Cfg.syslogServer) > 0) {
     // Configure syslog
     syslog.server(Cfg.syslogServer, Cfg.syslogPort);
@@ -22,14 +26,14 @@ void begin() {
 
     enabled = true;
 
-    Serial.printf("[LOGGER] Syslog enabled: %s:%d\n",
-                  Cfg.syslogServer, Cfg.syslogPort);
+    Serial.printf("[LOGGER] Syslog enabled: %s:%d, level: %d\n",
+                  Cfg.syslogServer, Cfg.syslogPort, currentLevel);
 
     // Send startup message
-    syslog.logf(6, "ESS Monitor started, version: %s", VERSION); // LOG_INFO = 6
+    syslog.logf(6, "ESS Monitor started, version: %s, log level: %d", VERSION, currentLevel);
   } else {
     enabled = false;
-    Serial.println("[LOGGER] Syslog disabled");
+    Serial.printf("[LOGGER] Syslog disabled, log level: %d\n", currentLevel);
   }
 }
 
@@ -39,6 +43,15 @@ void setEnabled(bool en) {
 
 bool isEnabled() {
   return enabled && Cfg.syslogEnabled;
+}
+
+void setLevel(Level level) {
+  currentLevel = level;
+  Serial.printf("[LOGGER] Log level changed to: %d\n", level);
+}
+
+Level getLevel() {
+  return currentLevel;
 }
 
 void log(Level level, const char* tag, const char* format, ...) {
@@ -53,8 +66,9 @@ void log(Level level, const char* tag, const char* format, ...) {
   // Always write to Serial
   Serial.printf("[%s] %s\n", tag, buffer);
 
-  // Send to syslog if enabled
-  if (isEnabled() && WiFi.status() == WL_CONNECTED) {
+  // Send to syslog if enabled and level is <= configured level
+  // Lower number = higher priority (EMERG=0, DEBUG=7)
+  if (isEnabled() && WiFi.status() == WL_CONNECTED && level <= currentLevel) {
     char syslogMsg[384];
     snprintf(syslogMsg, sizeof(syslogMsg), "[%s] %s", tag, buffer);
     syslog.log((uint16_t)level, syslogMsg);
