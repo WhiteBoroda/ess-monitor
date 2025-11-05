@@ -1,4 +1,5 @@
 #include "hass.h"
+#include "can.h"
 #include "relay.h"
 
 extern Config Cfg;
