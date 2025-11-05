@@ -256,4 +256,11 @@ uint32_t getTimeSinceLastKeepAlive() {
   return millis() - lastMillis;
 }
 
+EssStatus getEssStatus() {
+  portENTER_CRITICAL(&stateMux);
+  EssStatus copy = Ess;
+  portEXIT_CRITICAL(&stateMux);
+  return copy;
+}
+
 } // namespace CAN

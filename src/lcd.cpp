@@ -1,3 +1,4 @@
+#include "can.h"
 #include "types.h"
 #include <HardwareSerial.h>
 #include <U8g2lib.h>
@@ -47,6 +48,9 @@ void loop() {
 }
 
 void draw() {
+  // Get thread-safe copy of battery status
+  EssStatus ess = CAN::getEssStatus();
+
   lcd->clearBuffer();
   lcd->setFont(u8g2_font_pressstart2p_8r);
 
@@ -54,10 +58,10 @@ void draw() {
   lcd->drawStr(0, 10, "V");
 
   lcd->setCursor(12, 10);
-  lcd->print(Ess.voltage);
+  lcd->print(ess.voltage);
 
   lcd->setCursor(70, 10);
-  lcd->print(Ess.ratedVoltage);
+  lcd->print(ess.ratedVoltage);
 
   lcd->drawLine(0, 11, 128, 11);
 
@@ -65,27 +69,27 @@ void draw() {
   lcd->drawStr(0, 24, "C:");
 
   lcd->setCursor(16, 24);
-  lcd->print(Ess.charge);
+  lcd->print(ess.charge);
   lcd->drawStr(36, 24, "%");
 
   lcd->drawStr(70, 24, "H:");
   lcd->setCursor(86, 24);
-  lcd->print(Ess.health);
+  lcd->print(ess.health);
   lcd->drawStr(110, 24, "%");
 
   // Temperature
   lcd->drawStr(12, 36, "Temp:");
   lcd->setCursor(52, 36);
-  lcd->print(Ess.temperature);
+  lcd->print(ess.temperature);
   lcd->drawStr(102, 36, "C");
 
   // BMS errors or Wifi status
-  if (Ess.bmsError || Ess.bmsWarning) {
+  if (ess.bmsError || ess.bmsWarning) {
     lcd->drawStr(0, 50, "ER/WR:");
     lcd->setCursor(50, 50);
-    lcd->print(Ess.bmsError);
+    lcd->print(ess.bmsError);
     lcd->setCursor(90, 50);
-    lcd->print(Ess.bmsWarning);
+    lcd->print(ess.bmsWarning);
   } else {
     if (Cfg.wifiSTA) {
       lcd->setCursor(0, 50);
@@ -99,11 +103,11 @@ void draw() {
   // Current & limits
   lcd->drawStr(0, 64, "A");
   lcd->setCursor(12, 64);
-  lcd->print(Ess.current);
+  lcd->print(ess.current);
   lcd->setCursor(70, 64);
-  lcd->print(Ess.ratedChargeCurrent, 0);
+  lcd->print(ess.ratedChargeCurrent, 0);
   lcd->setCursor(100, 64);
-  lcd->print(Ess.ratedDischargeCurrent, 0);
+  lcd->print(ess.ratedDischargeCurrent, 0);
   lcd->drawLine(0, 52, 128, 52);
 
   lcd->sendBuffer();
