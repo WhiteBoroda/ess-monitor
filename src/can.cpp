@@ -1,4 +1,5 @@
 #include "can.h"
+#include "logger.h"
 #include "types.h"
 #include <HardwareSerial.h>
 #include <SPI.h>
@@ -57,9 +58,11 @@ bool initCAN() {
     attachInterrupt(INT_PIN, readCAN, LOW);
     pinMode(INT_PIN, INPUT);
     Serial.println(F("[CAN] Initializing MCP2515... OK."));
+    LOG_I("CAN", "MCP2515 initialized successfully at 500KBPS");
     return true;
   }
   Serial.println(F("[CAN] Initializing MCP2515... ERROR!"));
+  LOG_E("CAN", "Failed to initialize MCP2515!");
   return false;
 }
 
@@ -137,12 +140,11 @@ void writeCAN() {
   if (sendStatus == CAN_OK) {
     keepAliveCounter++;
     lastKeepAliveMillis = millis();
-#ifdef DEBUG
-    Serial.printf("[CAN] Keep-alive sent successfully. Counter: %lu\n", keepAliveCounter);
-#endif
+    LOG_D("CAN", "Keep-alive sent successfully. Counter: %lu", keepAliveCounter);
   } else {
     keepAliveFailures++;
     Serial.printf("[CAN] ⚠️ KEEP-ALIVE SEND FAILED! Failures: %lu\n", keepAliveFailures);
+    LOG_E("CAN", "KEEP-ALIVE SEND FAILED! Failures: %lu", keepAliveFailures);
   }
   portEXIT_CRITICAL(&keepAliveMux);
 
@@ -157,6 +159,7 @@ void writeCAN() {
   uint32_t timeSinceLastKeepAlive = millis() - lastMillis;
   if (timeSinceLastKeepAlive > 2000) {
     Serial.printf("[CAN] ⚠️ WARNING: %lu ms since last successful keep-alive!\n", timeSinceLastKeepAlive);
+    LOG_W("CAN", "WARNING: %lu ms since last successful keep-alive!", timeSinceLastKeepAlive);
   }
 }
 

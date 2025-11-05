@@ -1,5 +1,6 @@
 #include "tg.h"
 #include "can.h"
+#include "logger.h"
 #include "relay.h"
 #include "types.h"
 #include <FastBot.h>
@@ -141,11 +142,16 @@ void onMessage(FB_msg &msg) {
 #endif
 
   if (msg.text == "/status" || msg.text.startsWith("/status@")) {
+    LOG_D("TG", "Received /status command from chat %s", msg.chatID.c_str());
     bot.sendMessage(getStatusMsg(), msg.chatID);
   } else if (msg.text == "/canstatus" || msg.text.startsWith("/canstatus@")) {
+    LOG_D("TG", "Received /canstatus command from chat %s", msg.chatID.c_str());
     uint32_t keepAliveCount = CAN::getKeepAliveCounter();
     uint32_t keepAliveFailures = CAN::getKeepAliveFailures();
     uint32_t timeSinceLast = CAN::getTimeSinceLastKeepAlive();
+
+    LOG_D("TG", "CAN stats: count=%lu, failures=%lu, lastTime=%lu ms",
+          keepAliveCount, keepAliveFailures, timeSinceLast);
 
     String canMsg = "📡 *Статус CAN шини*\n\n";
     canMsg += "✅ Keep-alive відправлено: *" + String(keepAliveCount) + "*\n";
@@ -167,7 +173,9 @@ void onMessage(FB_msg &msg) {
     }
 
     bot.sendMessage(canMsg, msg.chatID);
+    LOG_D("TG", "Sent /canstatus response to chat %s", msg.chatID.c_str());
   } else if (msg.text == "/restart" || msg.text.startsWith("/restart@")) {
+    LOG_D("TG", "Received /restart command from chat %s", msg.chatID.c_str());
     if (RELAY::isEnabled()) {
       bot.sendMessage("🔄 *Запускаю процедуру перезапуску батареї...*\n\n"
                       "Реле активовано на " + String(Cfg.relayPulseMs) + "мс.\n"

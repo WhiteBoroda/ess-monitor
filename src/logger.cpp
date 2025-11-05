@@ -29,8 +29,16 @@ void begin() {
     Serial.printf("[LOGGER] Syslog enabled: %s:%d, level: %d\n",
                   Cfg.syslogServer, Cfg.syslogPort, currentLevel);
 
-    // Send startup message
-    syslog.logf(6, "ESS Monitor started, version: %s, log level: %d", VERSION, currentLevel);
+    // Send startup message with INFO level
+    syslog.logf(LEVEL_INFO, "ESS Monitor started, version: %s, log level: %d (%s)",
+                VERSION, currentLevel,
+                currentLevel == 0 ? "EMERG" :
+                currentLevel == 1 ? "ALERT" :
+                currentLevel == 2 ? "CRIT" :
+                currentLevel == 3 ? "ERROR" :
+                currentLevel == 4 ? "WARNING" :
+                currentLevel == 5 ? "NOTICE" :
+                currentLevel == 6 ? "INFO" : "DEBUG");
   } else {
     enabled = false;
     Serial.printf("[LOGGER] Syslog disabled, log level: %d\n", currentLevel);
