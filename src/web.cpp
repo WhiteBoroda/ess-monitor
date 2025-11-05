@@ -86,10 +86,12 @@ void buildPortal() {
   // WiFi settings tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/wifi");
-  GP.BOX_BEGIN();
-  GP.SWITCH("wifi.sta", Cfg.wifiSTA);
+  GP.BLOCK_BEGIN();
   GP.LABEL("Connect to existing network");
-  GP.BOX_END();
+  GP.BREAK();
+  GP.SWITCH("wifi.sta", Cfg.wifiSTA);
+  GP.BLOCK_END();
+  GP.BREAK();
   GP.LABEL("SSID");
   GP.TEXT("wifi.ssid", "", Cfg.wifiSSID, "", 128);
   GP.LABEL("Password");
@@ -101,20 +103,20 @@ void buildPortal() {
   // Telegram settings tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/tg");
-  GP.BOX_BEGIN();
-  GP.SWITCH("tg.enabled", Cfg.tgEnabled);
+  GP.BLOCK_BEGIN();
   GP.LABEL("Enable Telegram notifications");
-  GP.BOX_END();
+  GP.BREAK();
+  GP.SWITCH("tg.enabled", Cfg.tgEnabled);
+  GP.BLOCK_END();
+  GP.BREAK();
   GP.LABEL("Bot token");
   GP.PASS("tg.bot_token", "", Cfg.tgBotToken, "", sizeof(Cfg.tgBotToken));
   GP.LABEL("Chat ID");
   GP.TEXT("tg.chat_id", "", Cfg.tgChatID, "", sizeof(Cfg.tgChatID));
-
   GP.LABEL("Current threshold in Amps for alerts");
   char tgCurrentbuf[6];
   itoa(Cfg.tgCurrentThreshold, tgCurrentbuf, 10);
   GP.TEXT("tg.current_threshold", "", tgCurrentbuf, "", sizeof(tgCurrentbuf));
-  
   GP.BREAK();
   GP.SUBMIT("Save and reboot");
   GP.FORM_END();
@@ -122,10 +124,12 @@ void buildPortal() {
   // MQTT
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/mqtt");
-  GP.BOX_BEGIN();
-  GP.SWITCH("mqtt.enabled", Cfg.mqttEnabled);
+  GP.BLOCK_BEGIN();
   GP.LABEL("Enable MQTT");
-  GP.BOX_END();
+  GP.BREAK();
+  GP.SWITCH("mqtt.enabled", Cfg.mqttEnabled);
+  GP.BLOCK_END();
+  GP.BREAK();
   GP.LABEL("Broker IP address");
   GP.TEXT("mqtt.broker_ip", "", Cfg.mqttBrokerIp, "", sizeof(Cfg.mqttBrokerIp));
   GP.LABEL("Port (default: 1883)");
@@ -143,10 +147,12 @@ void buildPortal() {
   // Watchdog tab
   GP.NAV_BLOCK_BEGIN();
   GP.FORM_BEGIN("/watchdog");
-  GP.BOX_BEGIN();
-  GP.SWITCH("watchdog.enabled", Cfg.watchdogEnabled);
+  GP.BLOCK_BEGIN();
   GP.LABEL("Enable Hardware Watchdog Timer");
-  GP.BOX_END();
+  GP.BREAK();
+  GP.SWITCH("watchdog.enabled", Cfg.watchdogEnabled);
+  GP.BLOCK_END();
+  GP.BREAK();
   GP.LABEL("Timeout in seconds (10-120)");
   char watchdogTimeoutBuf[4];
   itoa(Cfg.watchdogTimeout, watchdogTimeoutBuf, 10);
@@ -154,6 +160,31 @@ void buildPortal() {
   GP.HR();
   GP.LABEL("ℹ️ Watchdog automatically reboots ESP32 if it freezes.");
   GP.LABEL("Recommended: Enabled with 30 second timeout.");
+  GP.BREAK();
+  GP.SUBMIT("Save and reboot");
+  GP.FORM_END();
+  GP.NAV_BLOCK_END();
+  // Syslog tab
+  GP.NAV_BLOCK_BEGIN();
+  GP.FORM_BEGIN("/syslog");
+  GP.BLOCK_BEGIN();
+  GP.LABEL("Enable Syslog (network logging)");
+  GP.BREAK();
+  GP.SWITCH("syslog.enabled", Cfg.syslogEnabled);
+  GP.BLOCK_END();
+  GP.BREAK();
+  GP.LABEL("Syslog server (IP or hostname)");
+  GP.TEXT("syslog.server", "", Cfg.syslogServer, "", sizeof(Cfg.syslogServer));
+  GP.LABEL("Port (default: 514)");
+  char syslogPortBuf[6];
+  itoa(Cfg.syslogPort, syslogPortBuf, 10);
+  GP.TEXT("syslog.port", "", syslogPortBuf, "", sizeof(syslogPortBuf));
+  GP.LABEL("Log level");
+  GP.SELECT("syslog.level", "EMERG,ALERT,CRIT,ERROR,WARNING,NOTICE,INFO,DEBUG", Cfg.syslogLevel);
+  GP.HR();
+  GP.LABEL("ℹ️ Send logs to syslog server over network (UDP).");
+  GP.LABEL("Compatible with Home Assistant Syslog addon, rsyslog, etc.");
+  GP.LABEL("View logs in real-time on your syslog server.");
   GP.BREAK();
   GP.SUBMIT("Save and reboot");
   GP.FORM_END();
@@ -294,6 +325,31 @@ void onPortalUpdate() {
 
       Pref.putBool(CFG_WATCHDOG_ENABLED, Cfg.watchdogEnabled);
       Pref.putUChar(CFG_WATCHDOG_TIMEOUT, Cfg.watchdogTimeout);
+
+      Pref.end();
+      backToWebRoot();
+      needRestart = true;
+    } else if (portal.form("/syslog")) {
+      portal.copyBool("syslog.enabled", Cfg.syslogEnabled);
+      portal.copyStr("syslog.server", Cfg.syslogServer,
+                     sizeof(Cfg.syslogServer));
+
+      int port = (int)Cfg.syslogPort;
+      portal.copyInt("syslog.port", port);
+      if (port < 1) port = 1;
+      if (port > 65535) port = 65535;
+      Cfg.syslogPort = (uint16_t)port;
+
+      int level = (int)Cfg.syslogLevel;
+      portal.copyInt("syslog.level", level);
+      if (level < 0) level = 0;
+      if (level > 7) level = 7;
+      Cfg.syslogLevel = (uint8_t)level;
+
+      Pref.putBool(CFG_SYSLOG_ENABLED, Cfg.syslogEnabled);
+      Pref.putString(CFG_SYSLOG_SERVER, Cfg.syslogServer);
+      Pref.putUShort(CFG_SYSLOG_PORT, Cfg.syslogPort);
+      Pref.putUChar(CFG_SYSLOG_LEVEL, Cfg.syslogLevel);
 
       Pref.end();
       backToWebRoot();

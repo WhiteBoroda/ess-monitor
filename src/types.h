@@ -24,6 +24,10 @@
 #define CFG_TG_CURRENT_THRESHOLD "tg.amps"
 #define CFG_WATCHDOG_ENABLED "watchdog.enabled"
 #define CFG_WATCHDOG_TIMEOUT "watchdog.timeout"
+#define CFG_SYSLOG_ENABLED "syslog.enabled"
+#define CFG_SYSLOG_SERVER "syslog.server"
+#define CFG_SYSLOG_PORT "syslog.port"
+#define CFG_SYSLOG_LEVEL "syslog.level"
 
 extern bool needRestart;
 

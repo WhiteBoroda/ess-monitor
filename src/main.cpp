@@ -32,6 +32,9 @@ void setup() {
   initConfig();
 
   if (initWiFi()) {
+    // Initialize Logger after WiFi connection
+    Logger::begin();
+
     if (Cfg.mqttEnabled) {
       HASS::begin(1, 1);
     }
