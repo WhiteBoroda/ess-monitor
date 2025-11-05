@@ -211,25 +211,28 @@ void buildPortal() {
 
 void onPortalUpdate() {
   if (portal.update()) {
+    // Get thread-safe copy of battery status
+    EssStatus ess = CAN::getEssStatus();
+
     if (portal.update("state.charge")) {
-      portal.answer(String(Ess.charge) + "%");
+      portal.answer(String(ess.charge) + "%");
     }
     if (portal.update("state.health")) {
-      portal.answer(String(Ess.health) + "%");
+      portal.answer(String(ess.health) + "%");
     }
     if (portal.update("state.current")) {
-      portal.answer(String(Ess.current, 1) + "A");
+      portal.answer(String(ess.current, 1) + "A");
     }
     if (portal.update("state.temperature")) {
-      portal.answer(String(Ess.temperature, 1) + "°C");
+      portal.answer(String(ess.temperature, 1) + "°C");
     }
     if (portal.update("state.voltage")) {
-      portal.answer(String(Ess.voltage, 2) + " / " +
-                    String(Ess.ratedVoltage, 2) + " V");
+      portal.answer(String(ess.voltage, 2) + " / " +
+                    String(ess.ratedVoltage, 2) + " V");
     }
     if (portal.update("state.limits")) {
-      portal.answer(String(Ess.ratedChargeCurrent, 1) + " / " +
-                    String(Ess.ratedDischargeCurrent, 1) + " A");
+      portal.answer(String(ess.ratedChargeCurrent, 1) + " / " +
+                    String(ess.ratedDischargeCurrent, 1) + " A");
     }
     if (portal.update("can.keepalive")) {
       portal.answer(String(CAN::getKeepAliveCounter()));

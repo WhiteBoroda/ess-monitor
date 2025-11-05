@@ -6,6 +6,9 @@
 #define CS_PIN 5
 #define INT_PIN 15
 
+// Forward declaration
+struct EssStatus;
+
 namespace CAN {
 
 typedef struct DataFrame {
@@ -29,6 +32,7 @@ void begin(uint8_t core, uint8_t priority);
 uint32_t getKeepAliveCounter();
 uint32_t getKeepAliveFailures();
 uint32_t getTimeSinceLastKeepAlive();
+EssStatus getEssStatus();
 
 } // namespace CAN
 

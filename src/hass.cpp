@@ -195,24 +195,27 @@ void loop() {
       firstRun = false;
     }
 
+    // Get thread-safe copy of battery status
+    EssStatus ess = CAN::getEssStatus();
+
     char buf[4];
 
-    chargeSensor.setValue(Ess.charge);
-    healthSensor.setValue(Ess.health);
-    voltageSensor.setValue(Ess.voltage);
-    ratedVoltageSensor.setValue(Ess.ratedVoltage);
-    currentSensor.setValue(Ess.current);
-    ratedChargeCurrentSensor.setValue(Ess.ratedChargeCurrent);
-    ratedDischargeCurrentSensor.setValue(Ess.ratedDischargeCurrent);
-    temperatureSensor.setValue(Ess.temperature);
-    sprintf(buf, "%d", Ess.bmsWarning);
+    chargeSensor.setValue(ess.charge);
+    healthSensor.setValue(ess.health);
+    voltageSensor.setValue(ess.voltage);
+    ratedVoltageSensor.setValue(ess.ratedVoltage);
+    currentSensor.setValue(ess.current);
+    ratedChargeCurrentSensor.setValue(ess.ratedChargeCurrent);
+    ratedDischargeCurrentSensor.setValue(ess.ratedDischargeCurrent);
+    temperatureSensor.setValue(ess.temperature);
+    sprintf(buf, "%d", ess.bmsWarning);
     bmsWarningSensor.setValue(buf);
-    sprintf(buf, "%d", Ess.bmsError);
+    sprintf(buf, "%d", ess.bmsError);
     bmsErrorSensor.setValue(buf);
 
 #ifdef DEBUG
     Serial.printf("[HASS] Published: SOC=%d%%, SOH=%d%%, V=%.2f, I=%.1f, T=%.1f\n",
-                  Ess.charge, Ess.health, Ess.voltage, Ess.current, Ess.temperature);
+                  ess.charge, ess.health, ess.voltage, ess.current, ess.temperature);
 #endif
   }
 
