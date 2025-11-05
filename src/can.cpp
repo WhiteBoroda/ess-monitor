@@ -13,6 +13,7 @@ namespace CAN {
 
 MCP_CAN can(CS_PIN);
 portMUX_TYPE stateMux = portMUX_INITIALIZER_UNLOCKED;
+portMUX_TYPE keepAliveMux = portMUX_INITIALIZER_UNLOCKED;
 
 // Keep-alive monitoring
 static uint32_t keepAliveCounter = 0;
@@ -132,6 +133,7 @@ void writeCAN() {
   logWriteDataFrame((DataFrame *)&DF_305);
   sendStatus = can.sendMsgBuf(DF_305.id, DF_305.dlc, (uint8_t *)DF_305.data);
 
+  portENTER_CRITICAL(&keepAliveMux);
   if (sendStatus == CAN_OK) {
     keepAliveCounter++;
     lastKeepAliveMillis = millis();
@@ -142,12 +144,17 @@ void writeCAN() {
     keepAliveFailures++;
     Serial.printf("[CAN] ⚠️ KEEP-ALIVE SEND FAILED! Failures: %lu\n", keepAliveFailures);
   }
+  portEXIT_CRITICAL(&keepAliveMux);
 
   // Send 0x35C - Charge control
   can.sendMsgBuf(chargeFrame.id, chargeFrame.dlc, chargeFrame.data);
 
   // Check for missed keep-alives (safety check)
-  uint32_t timeSinceLastKeepAlive = millis() - lastKeepAliveMillis;
+  portENTER_CRITICAL(&keepAliveMux);
+  uint32_t lastMillis = lastKeepAliveMillis;
+  portEXIT_CRITICAL(&keepAliveMux);
+
+  uint32_t timeSinceLastKeepAlive = millis() - lastMillis;
   if (timeSinceLastKeepAlive > 2000) {
     Serial.printf("[CAN] ⚠️ WARNING: %lu ms since last successful keep-alive!\n", timeSinceLastKeepAlive);
   }
@@ -222,18 +229,28 @@ DataFrame getChargeDataFrame() {
 }
 
 uint32_t getKeepAliveCounter() {
-  return keepAliveCounter;
+  portENTER_CRITICAL(&keepAliveMux);
+  uint32_t count = keepAliveCounter;
+  portEXIT_CRITICAL(&keepAliveMux);
+  return count;
 }
 
 uint32_t getKeepAliveFailures() {
-  return keepAliveFailures;
+  portENTER_CRITICAL(&keepAliveMux);
+  uint32_t failures = keepAliveFailures;
+  portEXIT_CRITICAL(&keepAliveMux);
+  return failures;
 }
 
 uint32_t getTimeSinceLastKeepAlive() {
-  if (lastKeepAliveMillis == 0) {
+  portENTER_CRITICAL(&keepAliveMux);
+  uint32_t lastMillis = lastKeepAliveMillis;
+  portEXIT_CRITICAL(&keepAliveMux);
+
+  if (lastMillis == 0) {
     return 0;
   }
-  return millis() - lastKeepAliveMillis;
+  return millis() - lastMillis;
 }
 
 } // namespace CAN
