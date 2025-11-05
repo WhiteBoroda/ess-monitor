@@ -251,8 +251,18 @@ uint32_t getTimeSinceLastKeepAlive() {
 }
 
 EssStatus getEssStatus() {
+  EssStatus copy;
   portENTER_CRITICAL(&stateMux);
-  EssStatus copy = Ess;
+  copy.charge = Ess.charge;
+  copy.health = Ess.health;
+  copy.voltage = Ess.voltage;
+  copy.current = Ess.current;
+  copy.ratedVoltage = Ess.ratedVoltage;
+  copy.ratedChargeCurrent = Ess.ratedChargeCurrent;
+  copy.ratedDischargeCurrent = Ess.ratedDischargeCurrent;
+  copy.temperature = Ess.temperature;
+  copy.bmsWarning = Ess.bmsWarning;
+  copy.bmsError = Ess.bmsError;
   portEXIT_CRITICAL(&stateMux);
   return copy;
 }
