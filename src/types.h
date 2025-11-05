@@ -22,9 +22,6 @@
 #define CFG_TG_BOT_TOKEN "tg.bot_token"
 #define CFG_TG_CHAT_ID "tg.chat_id"
 #define CFG_TG_CURRENT_THRESHOLD "tg.amps"
-#define CFG_RELAY_ENABLED "relay.enabled"
-#define CFG_RELAY_PIN "relay.pin"
-#define CFG_RELAY_PULSE_MS "relay.pulse_ms"
 #define CFG_WATCHDOG_ENABLED "watchdog.enabled"
 #define CFG_WATCHDOG_TIMEOUT "watchdog.timeout"
 
@@ -50,10 +47,6 @@ typedef struct Config {
   char tgBotToken[64];
   char tgChatID[32];
   uint8_t tgCurrentThreshold = 2;
-
-  bool relayEnabled = false;
-  uint8_t relayPin = 13;          // GPIO13 by default (free pin on ESP32)
-  uint16_t relayPulseMs = 500;    // 500ms pulse to simulate button press
 
   bool watchdogEnabled = false;   // Watchdog disabled by default (enable via web interface)
   uint8_t watchdogTimeout = 60;   // Watchdog timeout in seconds (default: 60s)

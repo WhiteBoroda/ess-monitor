@@ -1,7 +1,6 @@
 #include "can.h"
 #include "hass.h"
 #include "lcd.h"
-#include "relay.h"
 #include "tg.h"
 #include "types.h"
 #include "web.h"
@@ -44,10 +43,6 @@ void setup() {
   CAN::begin(1, 1); // TODO: wait for success for tg and hass to start
   WEB::begin(1, 1);
   LCD::begin(1, 1);
-
-  if (Cfg.relayEnabled) {
-    RELAY::begin();
-  }
 
   // Initialize Hardware Watchdog Timer
   if (Cfg.watchdogEnabled) {
@@ -108,10 +103,6 @@ void initConfig() {
   Pref.getString(CFG_TG_BOT_TOKEN, Cfg.tgBotToken, sizeof(Cfg.tgBotToken));
   Pref.getString(CFG_TG_CHAT_ID, Cfg.tgChatID, sizeof(Cfg.tgChatID));
   Cfg.tgCurrentThreshold = Pref.getUChar(CFG_TG_CURRENT_THRESHOLD, Cfg.tgCurrentThreshold);
-
-  Cfg.relayEnabled = Pref.getBool(CFG_RELAY_ENABLED, Cfg.relayEnabled);
-  Cfg.relayPin = Pref.getUChar(CFG_RELAY_PIN, Cfg.relayPin);
-  Cfg.relayPulseMs = Pref.getUShort(CFG_RELAY_PULSE_MS, Cfg.relayPulseMs);
 
   Cfg.watchdogEnabled = Pref.getBool(CFG_WATCHDOG_ENABLED, Cfg.watchdogEnabled);
   Cfg.watchdogTimeout = Pref.getUChar(CFG_WATCHDOG_TIMEOUT, Cfg.watchdogTimeout);
