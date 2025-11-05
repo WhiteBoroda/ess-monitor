@@ -243,6 +243,9 @@ void onPortalUpdate() {
     }
   }
   if (portal.form()) {
+    // Open Preferences for writing
+    Pref.begin("ess");
+
     if (portal.form("/wifi")) {
       portal.copyBool("wifi.sta", Cfg.wifiSTA);
       portal.copyStr("wifi.ssid", Cfg.wifiSSID, sizeof(Cfg.wifiSSID));

@@ -115,6 +115,8 @@ void initConfig() {
 
   Cfg.watchdogEnabled = Pref.getBool(CFG_WATCHDOG_ENABLED, Cfg.watchdogEnabled);
   Cfg.watchdogTimeout = Pref.getUChar(CFG_WATCHDOG_TIMEOUT, Cfg.watchdogTimeout);
+
+  Pref.end();
 }
 
 bool initWiFi() {
