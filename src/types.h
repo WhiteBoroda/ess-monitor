@@ -48,7 +48,7 @@ typedef struct Config {
   char tgChatID[32];
   uint8_t tgCurrentThreshold = 2;
 
-  bool watchdogEnabled = false;   // Watchdog disabled by default (enable via web interface)
+  bool watchdogEnabled = true;    // Watchdog enabled by default to prevent device freezing
   uint8_t watchdogTimeout = 60;   // Watchdog timeout in seconds (default: 60s)
 
 } Config;
