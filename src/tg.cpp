@@ -34,7 +34,7 @@ void begin(uint8_t core, uint8_t priority) {
 }
 
 void task(void *pvParameters) {
-  Serial.printf("[TG] Task running in core %d.\n", (uint32_t)xPortGetCoreID());
+  LOG_I("TG", "Task running in core %d", (uint32_t)xPortGetCoreID());
 
   bot.setToken(Cfg.tgBotToken);
   bot.setChatID(Cfg.tgChatID);
@@ -48,7 +48,7 @@ void task(void *pvParameters) {
     vTaskDelay(100 / portTICK_PERIOD_MS); // Small delay to prevent task starvation and WDT
   }
 
-  Serial.println("[TG] Task exited.");
+  LOG_I("TG", "Task exited");
   vTaskDelete(NULL);
 }
 
@@ -141,7 +141,7 @@ void loop() {
 
 void onMessage(FB_msg &msg) {
 #ifdef DEBUG
-  Serial.println("[TG] Message received: " + msg.toString());
+  LOG_D("TG", "Message received: %s", msg.toString().c_str());
 #endif
 
   if (msg.text == "/status" || msg.text.startsWith("/status@")) {
@@ -250,7 +250,7 @@ String getStatusMsg() {
   }
 
 #ifdef DEBUG
-  Serial.println(s);
+  LOG_D("TG", "Status message: %s", s.c_str());
 #endif
 
   return s;

@@ -39,7 +39,7 @@ void begin(uint8_t core, uint8_t priority) {
 }
 
 void task(void *pvParameters) {
-  Serial.printf("[CAN] Task running in core %d.\n", (uint32_t)xPortGetCoreID());
+  LOG_I("CAN", "Task running in core %d", (uint32_t)xPortGetCoreID());
 
   if (initCAN()) {
     while (1) {
@@ -48,7 +48,7 @@ void task(void *pvParameters) {
     }
   }
 
-  Serial.println("[CAN] Task exited.");
+  LOG_I("CAN", "Task exited");
   vTaskDelete(NULL);
 };
 
@@ -57,11 +57,9 @@ bool initCAN() {
     can.setMode(MCP_NORMAL);
     attachInterrupt(INT_PIN, readCAN, LOW);
     pinMode(INT_PIN, INPUT);
-    Serial.println(F("[CAN] Initializing MCP2515... OK."));
     LOG_I("CAN", "MCP2515 initialized successfully at 500KBPS");
     return true;
   }
-  Serial.println(F("[CAN] Initializing MCP2515... ERROR!"));
   LOG_E("CAN", "Failed to initialize MCP2515!");
   return false;
 }
@@ -143,7 +141,6 @@ void writeCAN() {
     LOG_D("CAN", "Keep-alive sent successfully. Counter: %lu", keepAliveCounter);
   } else {
     keepAliveFailures++;
-    Serial.printf("[CAN] ⚠️ KEEP-ALIVE SEND FAILED! Failures: %lu\n", keepAliveFailures);
     LOG_E("CAN", "KEEP-ALIVE SEND FAILED! Failures: %lu", keepAliveFailures);
   }
   portEXIT_CRITICAL(&keepAliveMux);
@@ -158,26 +155,23 @@ void writeCAN() {
 
   uint32_t timeSinceLastKeepAlive = millis() - lastMillis;
   if (timeSinceLastKeepAlive > 2000) {
-    Serial.printf("[CAN] ⚠️ WARNING: %lu ms since last successful keep-alive!\n", timeSinceLastKeepAlive);
     LOG_W("CAN", "WARNING: %lu ms since last successful keep-alive!", timeSinceLastKeepAlive);
   }
 }
 
 void logReadDataFrame(DataFrame *f) {
 #ifdef DEBUG
-  Serial.printf("[CAN] Frame received:\t <- ID: %04x DLC: %d Data: "
-                "%02x %02x %02x %02x %02x %02x %02x %02x\n",
-                f->id, f->dlc, f->data[0], f->data[1], f->data[2], f->data[3],
-                f->data[4], f->data[5], f->data[6], f->data[7]);
+  LOG_D("CAN", "Frame received: <- ID: %04x DLC: %d Data: %02x %02x %02x %02x %02x %02x %02x %02x",
+        f->id, f->dlc, f->data[0], f->data[1], f->data[2], f->data[3],
+        f->data[4], f->data[5], f->data[6], f->data[7]);
 #endif
 }
 
 void logWriteDataFrame(DataFrame *f) {
 #ifdef DEBUG
-  Serial.printf("[CAN] Frame sent:\t -> ID: %04x DLC: %d Data: "
-                "%02x %02x %02x %02x %02x %02x %02x %02x\n",
-                f->id, f->dlc, f->data[0], f->data[1], f->data[2], f->data[3],
-                f->data[4], f->data[5], f->data[6], f->data[7]);
+  LOG_D("CAN", "Frame sent: -> ID: %04x DLC: %d Data: %02x %02x %02x %02x %02x %02x %02x %02x",
+        f->id, f->dlc, f->data[0], f->data[1], f->data[2], f->data[3],
+        f->data[4], f->data[5], f->data[6], f->data[7]);
 #endif
 }
 

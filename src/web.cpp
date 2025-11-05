@@ -1,6 +1,7 @@
 #include "web.h"
 #include "can.h"
 #include "types.h"
+#include "logger.h"
 #include <GyverPortal.h>
 #include <HardwareSerial.h>
 #include <Preferences.h>
@@ -24,7 +25,7 @@ void begin(uint8_t core, uint8_t priority) {
 }
 
 void task(void *pvParameters) {
-  Serial.printf("[WEB] Task running in core %d.\n", (uint32_t)xPortGetCoreID());
+  LOG_I("WEB", "Task running in core %d", (uint32_t)xPortGetCoreID());
   portal.enableOTA();
   portal.attachBuild(buildPortal);
   portal.attach(onPortalUpdate);
@@ -35,7 +36,7 @@ void task(void *pvParameters) {
     vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay to prevent task starvation and WDT
   }
 
-  Serial.println("[WEB] Task exited.");
+  LOG_I("WEB", "Task exited");
   vTaskDelete(NULL);
 }
 

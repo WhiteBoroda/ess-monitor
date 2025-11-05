@@ -55,12 +55,12 @@ void setup() {
 
   // Initialize Hardware Watchdog Timer
   if (Cfg.watchdogEnabled) {
-    Serial.printf("[MAIN] Enabling Hardware Watchdog Timer: %d seconds\n", Cfg.watchdogTimeout);
+    LOG_I("MAIN", "Enabling Hardware Watchdog Timer: %d seconds", Cfg.watchdogTimeout);
     esp_task_wdt_init(Cfg.watchdogTimeout, true); // timeout in seconds, panic on timeout
     esp_task_wdt_add(NULL); // Add current task (loop task) to WDT
-    Serial.println("[MAIN] ✓ Watchdog Timer enabled");
+    LOG_I("MAIN", "Watchdog Timer enabled");
   } else {
-    Serial.println("[MAIN] Watchdog Timer disabled by configuration");
+    LOG_I("MAIN", "Watchdog Timer disabled by configuration");
   }
 }
 
@@ -144,8 +144,8 @@ bool initWiFi() {
     while (millis() - previousMillis < 20000) {
       if (wifiMulti.run() == WL_CONNECTED) {
         Serial.println(" OK.");
-        Serial.println("IP Address: " + WiFi.localIP().toString());
-        Serial.printf("mDNS hostname: '%s.local'\n", Cfg.hostname);
+        LOG_I("MAIN", "Connected to WiFi. IP Address: %s", WiFi.localIP().toString().c_str());
+        LOG_I("MAIN", "mDNS hostname: '%s.local'", Cfg.hostname);
         wifiEverConnected = true;
         return true;
       }
@@ -153,18 +153,18 @@ bool initWiFi() {
       Serial.print(".");
     }
 
-    Serial.println("Could not connect to WiFi network in 20 seconds.");
+    Serial.println("");
+    LOG_W("MAIN", "Could not connect to WiFi network in 20 seconds");
   }
 
   if (!wifiEverConnected) {
-    Serial.println("Starting WiFi access point.");
+    LOG_I("MAIN", "Starting WiFi access point. SSID: '%s'", Cfg.hostname);
     IPAddress AP_IP(192, 168, 4, 1);
     IPAddress AP_PFX(255, 255, 255, 0);
     WiFi.disconnect();
     WiFi.mode(WIFI_AP);
     WiFi.softAPConfig(AP_IP, AP_IP, AP_PFX);
     WiFi.softAP(Cfg.hostname, "12345678");
-    Serial.printf("Access point SSID: '%s'\n", Cfg.hostname);
     return false;
   }
 
@@ -176,10 +176,8 @@ void logBatteryState() {
   // Get thread-safe copy of battery status
   EssStatus ess = CAN::getEssStatus();
 
-  Serial.printf("[MAIN] Load %.1f | RC %.1f/%.1f | SOC %d%% | SOH %d%% | T "
-                "%.1f°C | V %.2f/%.2f\n",
-                ess.current, ess.ratedChargeCurrent, ess.ratedDischargeCurrent,
-                ess.charge, ess.health, ess.temperature, ess.voltage,
-                ess.ratedVoltage);
+  LOG_D("MAIN", "Load %.1f | RC %.1f/%.1f | SOC %d%% | SOH %d%% | T %.1f°C | V %.2f/%.2f",
+        ess.current, ess.ratedChargeCurrent, ess.ratedDischargeCurrent,
+        ess.charge, ess.health, ess.temperature, ess.voltage, ess.ratedVoltage);
 #endif
 }

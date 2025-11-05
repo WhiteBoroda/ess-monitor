@@ -1,5 +1,6 @@
 #include "can.h"
 #include "types.h"
+#include "logger.h"
 #include <HardwareSerial.h>
 #include <U8g2lib.h>
 #include <WiFi.h>
@@ -24,7 +25,7 @@ void begin(uint8_t core, uint8_t priority) {
 }
 
 void task(void *pvParameters) {
-  Serial.printf("[LCD] Task running in core %d.\n", (uint32_t)xPortGetCoreID());
+  LOG_I("LCD", "Task running in core %d", (uint32_t)xPortGetCoreID());
 
   lcd = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R0,
                                                 /* reset=*/U8X8_PIN_NONE);
@@ -35,7 +36,7 @@ void task(void *pvParameters) {
     loop();
   }
 
-  Serial.println("[LCD] Task exited.");
+  LOG_I("LCD", "Task exited");
   vTaskDelete(NULL);
 }
 
@@ -43,7 +44,7 @@ void loop() {
   vTaskDelay(3000 / portTICK_PERIOD_MS);
   draw();
 #ifdef DEBUG
-  Serial.println("[LCD] Draw.");
+  LOG_D("LCD", "Draw");
 #endif
 }
 

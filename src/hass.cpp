@@ -1,5 +1,6 @@
 #include "hass.h"
 #include "relay.h"
+#include "logger.h"
 
 extern Config Cfg;
 extern volatile EssStatus Ess;
@@ -32,8 +33,7 @@ void begin(uint8_t core, uint8_t priority) {
 }
 
 void task(void *pvParameters) {
-  Serial.printf("[HASS] Task running in core %d.\n",
-                (uint32_t)xPortGetCoreID());
+  LOG_I("HASS", "Task running in core %d", (uint32_t)xPortGetCoreID());
 
   uint8_t mac[6];
   WiFi.macAddress(mac);
@@ -100,7 +100,7 @@ void task(void *pvParameters) {
     restartButton.setIcon("mdi:restart");
     restartButton.setName("Battery Restart");
     restartButton.onCommand([](HAButton* sender) {
-      Serial.println("[HASS] Battery restart button pressed.");
+      LOG_I("HASS", "Battery restart button pressed");
       RELAY::triggerPulse();
     });
   }
@@ -110,16 +110,16 @@ void task(void *pvParameters) {
 
   // Use authentication if username and password are provided
   if (strlen(Cfg.mqttUsername) > 0 && strlen(Cfg.mqttPassword) > 0) {
-    Serial.printf("[HASS] Connecting to MQTT broker %s:%d with authentication (user: %s)\n",
-                  Cfg.mqttBrokerIp, Cfg.mqttPort, Cfg.mqttUsername);
+    LOG_I("HASS", "Connecting to MQTT broker %s:%d with authentication (user: %s)",
+          Cfg.mqttBrokerIp, Cfg.mqttPort, Cfg.mqttUsername);
     mqtt.begin(ip, Cfg.mqttPort, Cfg.mqttUsername, Cfg.mqttPassword);
   } else {
-    Serial.printf("[HASS] Connecting to MQTT broker %s:%d without authentication\n",
-                  Cfg.mqttBrokerIp, Cfg.mqttPort);
+    LOG_I("HASS", "Connecting to MQTT broker %s:%d without authentication",
+          Cfg.mqttBrokerIp, Cfg.mqttPort);
     mqtt.begin(ip, Cfg.mqttPort);
   }
 
-  Serial.println("[HASS] Waiting for MQTT connection...");
+  LOG_I("HASS", "Waiting for MQTT connection...");
 
   // Wait for MQTT connection to establish
   uint8_t connectionAttempts = 0;
@@ -128,23 +128,23 @@ void task(void *pvParameters) {
     vTaskDelay(500 / portTICK_PERIOD_MS);
     connectionAttempts++;
     if (connectionAttempts % 5 == 0) {
-      Serial.printf("[HASS] Still connecting... attempt %d/30\n", connectionAttempts);
+      LOG_I("HASS", "Still connecting... attempt %d/30", connectionAttempts);
     }
   }
 
   if (mqtt.isConnected()) {
-    Serial.println("[HASS] ✓ MQTT connected successfully!");
+    LOG_I("HASS", "MQTT connected successfully!");
   } else {
-    Serial.println("[HASS] ⚠️ WARNING: Could not connect to MQTT broker!");
+    LOG_W("HASS", "WARNING: Could not connect to MQTT broker!");
   }
 
   // Start MQTT loop immediately to publish discovery messages
-  Serial.println("[HASS] Starting MQTT loop and publishing discovery...");
-  Serial.printf("[HASS] Device info: Name='%s', Model='%s', MAC=%02X:%02X:%02X:%02X:%02X:%02X\n",
-                "ESS Monitor", "ess-monitor", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-  Serial.printf("[HASS] MQTT will publish to discovery prefix: homeassistant\n");
-  Serial.printf("[HASS] Number of entities to publish: %d sensors + 1 button\n",
-                RELAY::isEnabled() ? 10 : 10);
+  LOG_I("HASS", "Starting MQTT loop and publishing discovery...");
+  LOG_I("HASS", "Device info: Name='%s', Model='%s', MAC=%02X:%02X:%02X:%02X:%02X:%02X",
+        "ESS Monitor", "ess-monitor", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  LOG_I("HASS", "MQTT will publish to discovery prefix: homeassistant");
+  LOG_I("HASS", "Number of entities to publish: %d sensors + 1 button",
+        RELAY::isEnabled() ? 10 : 10);
 
   // Run initial loops to publish discovery and establish connection
   for (int i = 0; i < 100; i++) {
@@ -152,19 +152,19 @@ void task(void *pvParameters) {
     vTaskDelay(200 / portTICK_PERIOD_MS);
 
     if (i % 20 == 0) {
-      Serial.printf("[HASS] Discovery progress: %d/100 loops... (connected: %s)\n",
-                    i, mqtt.isConnected() ? "YES" : "NO");
+      LOG_D("HASS", "Discovery progress: %d/100 loops... (connected: %s)",
+            i, mqtt.isConnected() ? "YES" : "NO");
     }
   }
 
-  Serial.println("[HASS] ✓ Discovery published, entering main loop.");
+  LOG_I("HASS", "Discovery published, entering main loop");
 
   while (1) {
     loop();
     vTaskDelay(100 / portTICK_PERIOD_MS); // Small delay to prevent task starvation
   }
 
-  Serial.println("[HASS] Task exited.");
+  LOG_I("HASS", "Task exited");
   vTaskDelete(NULL);
 };
 
@@ -177,8 +177,8 @@ void loop() {
   // Check MQTT connection status every 30 seconds
   if (currentMillis - statusCheckMillis >= 1000 * 30) {
     statusCheckMillis = currentMillis;
-    Serial.printf("[HASS] MQTT connection status: %s\n",
-                  mqtt.isConnected() ? "CONNECTED" : "DISCONNECTED");
+    LOG_D("HASS", "MQTT connection status: %s",
+          mqtt.isConnected() ? "CONNECTED" : "DISCONNECTED");
   }
 
   // Publish initial values immediately, then every 5 seconds
@@ -186,12 +186,12 @@ void loop() {
     previousMillis = currentMillis;
 
 #ifdef DEBUG
-    Serial.printf("[HASS] Publishing sensor updates (connected: %s)...\n",
-                  mqtt.isConnected() ? "YES" : "NO");
+    LOG_D("HASS", "Publishing sensor updates (connected: %s)...",
+          mqtt.isConnected() ? "YES" : "NO");
 #endif
 
     if (firstRun) {
-      Serial.println("[HASS] First sensor value publication...");
+      LOG_I("HASS", "First sensor value publication...");
       firstRun = false;
     }
 
@@ -214,8 +214,8 @@ void loop() {
     bmsErrorSensor.setValue(buf);
 
 #ifdef DEBUG
-    Serial.printf("[HASS] Published: SOC=%d%%, SOH=%d%%, V=%.2f, I=%.1f, T=%.1f\n",
-                  ess.charge, ess.health, ess.voltage, ess.current, ess.temperature);
+    LOG_D("HASS", "Published: SOC=%d%%, SOH=%d%%, V=%.2f, I=%.1f, T=%.1f",
+          ess.charge, ess.health, ess.voltage, ess.current, ess.temperature);
 #endif
   }
 
