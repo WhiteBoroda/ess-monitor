@@ -102,15 +102,37 @@ void begin() {
       return;
     }
 
-    // Send PROGMEM data directly
-    request->send(200, "text/html", HTML_PAGE);
+    // Create response from PROGMEM
+    AsyncWebServerResponse *response = request->beginResponse(String("text/html"), strlen_P(HTML_PAGE),
+      [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+        size_t htmlLen = strlen_P(HTML_PAGE);
+        if (index >= htmlLen) return 0;
+
+        size_t remaining = htmlLen - index;
+        size_t toSend = (remaining > maxLen) ? maxLen : remaining;
+        memcpy_P(buffer, HTML_PAGE + index, toSend);
+        return toSend;
+      });
+    request->send(response);
     Serial.printf("[WEB] Main page sent, Free Heap after: %d KB\n", ESP.getFreeHeap() / 1024);
   });
 
   // OTA Update page
   server.on("/ota_update", HTTP_GET, [](AsyncWebServerRequest *request) {
     Serial.printf("[WEB] OTA page requested, Free Heap: %d KB\n", ESP.getFreeHeap() / 1024);
-    request->send(200, "text/html", OTA_HTML);
+
+    // Create response from PROGMEM
+    AsyncWebServerResponse *response = request->beginResponse(String("text/html"), strlen_P(OTA_HTML),
+      [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+        size_t htmlLen = strlen_P(OTA_HTML);
+        if (index >= htmlLen) return 0;
+
+        size_t remaining = htmlLen - index;
+        size_t toSend = (remaining > maxLen) ? maxLen : remaining;
+        memcpy_P(buffer, OTA_HTML + index, toSend);
+        return toSend;
+      });
+    request->send(response);
   });
 
   // OTA Update handler
