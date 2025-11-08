@@ -28,9 +28,13 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 
     // Limit to 2 concurrent WebSocket clients to save memory
     if (ws.count() > 2) {
-      Serial.println("[WS] Too many clients, rejecting oldest");
-      // Close oldest client
-      ws.close(ws.getClients()[0]->id());
+      Serial.println("[WS] Too many clients, disconnecting oldest");
+      // Close the oldest client (first in the list)
+      auto clients = ws.getClients();
+      if (!clients.empty()) {
+        auto firstClient = clients.front();
+        ws.close(firstClient->id());
+      }
     }
 
     updateLiveData();
@@ -104,7 +108,7 @@ void begin() {
       return;
     }
 
-    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", HTML_PAGE);
+    AsyncWebServerResponse *response = request->beginResponse(200, "text/html", HTML_PAGE);
     request->send(response);
     Serial.printf("[WEB] Main page sent, Free Heap after: %d KB\n", ESP.getFreeHeap() / 1024);
   });
@@ -112,7 +116,7 @@ void begin() {
   // OTA Update page
   server.on("/ota_update", HTTP_GET, [](AsyncWebServerRequest *request) {
     Serial.printf("[WEB] OTA page requested, Free Heap: %d KB\n", ESP.getFreeHeap() / 1024);
-    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", OTA_HTML);
+    AsyncWebServerResponse *response = request->beginResponse(200, "text/html", OTA_HTML);
     request->send(response);
   });
 
