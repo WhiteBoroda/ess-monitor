@@ -47,7 +47,7 @@ void begin() {
     // Handle commands
     if (msg == "status" || msg == "info") {
       WebSerial.println("========== ESS Monitor Status ==========");
-      WebSerial.println("Version: v0.1-dev");
+      WebSerial.println("Version: " + String(VERSION));
       WebSerial.println("Hostname: " + String(Cfg.hostname));
       WebSerial.println("WiFi: " + (WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected"));
       if (WiFi.status() == WL_CONNECTED) {
@@ -243,6 +243,7 @@ void begin() {
     doc["ip"] = WiFi.localIP().toString();
     doc["ssid"] = WiFi.SSID();
     doc["rssi"] = WiFi.RSSI();
+    doc["version"] = VERSION;
     doc["uptime"] = String(millis() / 1000) + "s";
     doc["freeHeap"] = ESP.getFreeHeap();
 
@@ -277,6 +278,7 @@ void updateLiveData() {
   doc["ip"] = WiFi.localIP().toString();
   doc["ssid"] = WiFi.SSID();
   doc["rssi"] = WiFi.RSSI();
+  doc["version"] = VERSION;
   doc["uptime"] = String(millis() / 1000) + "s";
   doc["freeHeap"] = ESP.getFreeHeap();
 

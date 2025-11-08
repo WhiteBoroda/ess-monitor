@@ -314,7 +314,7 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
           <tr><td>IP Address:</td><td id="sysIP">--</td></tr>
           <tr><td>WiFi SSID:</td><td id="sysSSID">--</td></tr>
           <tr><td>WiFi Signal:</td><td id="sysRSSI">--</td></tr>
-          <tr><td>Version:</td><td>v0.1-dev</td></tr>
+          <tr><td>Version:</td><td id="sysVersion">--</td></tr>
           <tr><td>Uptime:</td><td id="sysUptime">--</td></tr>
           <tr><td>Free Heap:</td><td id="sysFreeHeap">--</td></tr>
         </table>
@@ -372,6 +372,9 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
       }
       if (data.rssi !== undefined) {
         document.getElementById('sysRSSI').textContent = data.rssi + ' dBm';
+      }
+      if (data.version !== undefined) {
+        document.getElementById('sysVersion').textContent = data.version;
       }
       if (data.uptime !== undefined) {
         document.getElementById('sysUptime').textContent = data.uptime;

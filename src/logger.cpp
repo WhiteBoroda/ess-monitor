@@ -14,18 +14,19 @@ void begin() {
   webSerialEnabled = true;
 
   // Send welcome message to both Serial and WebSerial
-  const char* welcomeMsg = R"(
+  char welcomeMsg[512];
+  snprintf(welcomeMsg, sizeof(welcomeMsg), R"(
 ========================================
    ESS Monitor - Logger Initialized
 ========================================
-Version: v0.1-dev
+Version: %s
 Log Level: DEBUG
 WebSerial Console: Active
 ----------------------------------------
 All system logs will appear here.
 Type 'status' for system information.
 ========================================
-)";
+)", VERSION);
 
   Serial.println(welcomeMsg);
   WebSerial.println(welcomeMsg);
