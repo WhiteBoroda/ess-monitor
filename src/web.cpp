@@ -69,12 +69,12 @@ void begin() {
 
   // Serve main page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send_P(200, "text/html", HTML_PAGE);
+    request->send(200, "text/html", HTML_PAGE);
   });
 
   // API: Get all settings
   server.on("/api/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
-    StaticJsonDocument<1024> doc;
+    JsonDocument doc;
 
     doc["wifiSTA"] = Cfg.wifiSTA;
     doc["wifiSSID"] = Cfg.wifiSSID;
@@ -97,7 +97,7 @@ void begin() {
   // API: Save WiFi settings
   server.on("/api/settings/wifi", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL,
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-      StaticJsonDocument<512> doc;
+      JsonDocument doc;
       DeserializationError error = deserializeJson(doc, data, len);
 
       if (error) {
@@ -106,15 +106,15 @@ void begin() {
       }
 
       Pref.begin("ess");
-      if (doc.containsKey("wifiSTA")) {
+      if (doc["wifiSTA"].is<bool>()) {
         Cfg.wifiSTA = doc["wifiSTA"].as<bool>();
         Pref.putBool(CFG_WIFI_STA, Cfg.wifiSTA);
       }
-      if (doc.containsKey("wifiSSID")) {
+      if (doc["wifiSSID"].is<const char*>()) {
         strlcpy(Cfg.wifiSSID, doc["wifiSSID"].as<const char*>(), sizeof(Cfg.wifiSSID));
         Pref.putString(CFG_WIFI_SSID, Cfg.wifiSSID);
       }
-      if (doc.containsKey("wifiPass")) {
+      if (doc["wifiPass"].is<const char*>()) {
         strlcpy(Cfg.wifiPass, doc["wifiPass"].as<const char*>(), sizeof(Cfg.wifiPass));
         Pref.putString(CFG_WIFI_PASS, Cfg.wifiPass);
       }
@@ -127,7 +127,7 @@ void begin() {
   // API: Save Telegram settings
   server.on("/api/settings/telegram", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL,
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-      StaticJsonDocument<512> doc;
+      JsonDocument doc;
       DeserializationError error = deserializeJson(doc, data, len);
 
       if (error) {
@@ -136,19 +136,19 @@ void begin() {
       }
 
       Pref.begin("ess");
-      if (doc.containsKey("tgEnabled")) {
+      if (doc["tgEnabled"].is<bool>()) {
         Cfg.tgEnabled = doc["tgEnabled"].as<bool>();
         Pref.putBool(CFG_TG_ENABLED, Cfg.tgEnabled);
       }
-      if (doc.containsKey("tgBotToken")) {
+      if (doc["tgBotToken"].is<const char*>()) {
         strlcpy(Cfg.tgBotToken, doc["tgBotToken"].as<const char*>(), sizeof(Cfg.tgBotToken));
         Pref.putString(CFG_TG_BOT_TOKEN, Cfg.tgBotToken);
       }
-      if (doc.containsKey("tgChatID")) {
+      if (doc["tgChatID"].is<const char*>()) {
         strlcpy(Cfg.tgChatID, doc["tgChatID"].as<const char*>(), sizeof(Cfg.tgChatID));
         Pref.putString(CFG_TG_CHAT_ID, Cfg.tgChatID);
       }
-      if (doc.containsKey("tgThreshold")) {
+      if (doc["tgThreshold"].is<int>()) {
         Cfg.tgCurrentThreshold = doc["tgThreshold"].as<uint8_t>();
         Pref.putUChar(CFG_TG_CURRENT_THRESHOLD, Cfg.tgCurrentThreshold);
       }
@@ -161,7 +161,7 @@ void begin() {
   // API: Save MQTT settings
   server.on("/api/settings/mqtt", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL,
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-      StaticJsonDocument<512> doc;
+      JsonDocument doc;
       DeserializationError error = deserializeJson(doc, data, len);
 
       if (error) {
@@ -170,23 +170,23 @@ void begin() {
       }
 
       Pref.begin("ess");
-      if (doc.containsKey("mqttEnabled")) {
+      if (doc["mqttEnabled"].is<bool>()) {
         Cfg.mqttEnabled = doc["mqttEnabled"].as<bool>();
         Pref.putBool(CFG_MQQTT_ENABLED, Cfg.mqttEnabled);
       }
-      if (doc.containsKey("mqttBroker")) {
+      if (doc["mqttBroker"].is<const char*>()) {
         strlcpy(Cfg.mqttBrokerIp, doc["mqttBroker"].as<const char*>(), sizeof(Cfg.mqttBrokerIp));
         Pref.putString(CFG_MQQTT_BROKER_IP, Cfg.mqttBrokerIp);
       }
-      if (doc.containsKey("mqttPort")) {
+      if (doc["mqttPort"].is<int>()) {
         Cfg.mqttPort = doc["mqttPort"].as<uint16_t>();
         Pref.putUShort(CFG_MQQTT_PORT, Cfg.mqttPort);
       }
-      if (doc.containsKey("mqttUser")) {
+      if (doc["mqttUser"].is<const char*>()) {
         strlcpy(Cfg.mqttUsername, doc["mqttUser"].as<const char*>(), sizeof(Cfg.mqttUsername));
         Pref.putString(CFG_MQQTT_USERNAME, Cfg.mqttUsername);
       }
-      if (doc.containsKey("mqttPass")) {
+      if (doc["mqttPass"].is<const char*>()) {
         strlcpy(Cfg.mqttPassword, doc["mqttPass"].as<const char*>(), sizeof(Cfg.mqttPassword));
         Pref.putString(CFG_MQQTT_PASSWORD, Cfg.mqttPassword);
       }
@@ -199,7 +199,7 @@ void begin() {
   // API: Save Watchdog settings
   server.on("/api/settings/watchdog", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL,
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-      StaticJsonDocument<256> doc;
+      JsonDocument doc;
       DeserializationError error = deserializeJson(doc, data, len);
 
       if (error) {
@@ -208,11 +208,11 @@ void begin() {
       }
 
       Pref.begin("ess");
-      if (doc.containsKey("wdEnabled")) {
+      if (doc["wdEnabled"].is<bool>()) {
         Cfg.watchdogEnabled = doc["wdEnabled"].as<bool>();
         Pref.putBool(CFG_WATCHDOG_ENABLED, Cfg.watchdogEnabled);
       }
-      if (doc.containsKey("wdTimeout")) {
+      if (doc["wdTimeout"].is<int>()) {
         Cfg.watchdogTimeout = doc["wdTimeout"].as<uint8_t>();
         Pref.putUChar(CFG_WATCHDOG_TIMEOUT, Cfg.watchdogTimeout);
       }
@@ -230,7 +230,7 @@ void begin() {
 
   // API: Live data
   server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *request) {
-    StaticJsonDocument<512> doc;
+    JsonDocument doc;
     EssStatus ess = CAN::getEssStatus();
 
     doc["charge"] = ess.charge;
@@ -265,7 +265,7 @@ AsyncWebServer& getServer() {
 void updateLiveData() {
   if (ws.count() == 0) return;
 
-  StaticJsonDocument<512> doc;
+  JsonDocument doc;
   EssStatus ess = CAN::getEssStatus();
 
   doc["charge"] = ess.charge;
