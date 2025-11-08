@@ -24,10 +24,18 @@ AsyncWebSocket ws("/ws");
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
                AwsEventType type, void *arg, uint8_t *data, size_t len) {
   if (type == WS_EVT_CONNECT) {
-    Serial.printf("[WS] Client #%u connected\n", client->id());
+    Serial.printf("[WS] Client #%u connected, Total clients: %d\n", client->id(), ws.count());
+
+    // Limit to 2 concurrent WebSocket clients to save memory
+    if (ws.count() > 2) {
+      Serial.println("[WS] Too many clients, rejecting oldest");
+      // Close oldest client
+      ws.close(ws.getClients()[0]->id());
+    }
+
     updateLiveData();
   } else if (type == WS_EVT_DISCONNECT) {
-    Serial.printf("[WS] Client #%u disconnected\n", client->id());
+    Serial.printf("[WS] Client #%u disconnected, Total clients: %d\n", client->id(), ws.count());
   }
 }
 
@@ -81,17 +89,30 @@ void begin() {
     }
   });
 
-  // Serve main page (use chunked response for large PROGMEM data to avoid memory issues)
+  // Serve main page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    // Clean up disconnected WebSocket clients to free memory
+    ws.cleanupClients();
+
+    uint32_t freeHeap = ESP.getFreeHeap();
+    Serial.printf("[WEB] Main page requested, Free Heap: %d KB\n", freeHeap / 1024);
+
+    // Check if we have enough memory (need at least 40KB free)
+    if (freeHeap < 40000) {
+      Serial.println("[WEB] WARNING: Low memory! Sending error page");
+      request->send(507, "text/plain", "Insufficient memory. Please wait and retry.");
+      return;
+    }
+
     AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", HTML_PAGE);
-    response->addHeader("Cache-Control", "no-cache");
     request->send(response);
+    Serial.printf("[WEB] Main page sent, Free Heap after: %d KB\n", ESP.getFreeHeap() / 1024);
   });
 
   // OTA Update page
   server.on("/ota_update", HTTP_GET, [](AsyncWebServerRequest *request) {
+    Serial.printf("[WEB] OTA page requested, Free Heap: %d KB\n", ESP.getFreeHeap() / 1024);
     AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", OTA_HTML);
-    response->addHeader("Cache-Control", "no-cache");
     request->send(response);
   });
 
