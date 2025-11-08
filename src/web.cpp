@@ -39,7 +39,27 @@ void begin() {
   WebSerial.begin(&server);
   Serial.println("[WEB] WebSerial initialized at /webserial");
 
-  // Send startup info to WebSerial when clients connect
+  // Send welcome message when client connects
+  WebSerial.onConnect([]() {
+    WebSerial.println("\n========================================");
+    WebSerial.println("   ESS Monitor - WebSerial Console");
+    WebSerial.println("========================================");
+    WebSerial.println("Version: " + String(VERSION));
+    WebSerial.println("Hostname: " + String(Cfg.hostname));
+    WebSerial.println(String("WiFi: ") + (WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected"));
+    if (WiFi.status() == WL_CONNECTED) {
+      WebSerial.println("  SSID: " + WiFi.SSID());
+      WebSerial.println("  IP: " + WiFi.localIP().toString());
+      WebSerial.println("  Signal: " + String(WiFi.RSSI()) + " dBm");
+    }
+    WebSerial.println("Uptime: " + String(millis() / 1000) + " seconds");
+    WebSerial.println("Free Heap: " + String(ESP.getFreeHeap() / 1024) + " KB");
+    WebSerial.println("========================================");
+    WebSerial.println("Console is ready. Type 'help' for commands.");
+    WebSerial.println("All new system logs will appear here.\n");
+  });
+
+  // Handle commands from WebSerial
   WebSerial.onMessage([](const String& msg) {
     // Echo received message
     WebSerial.println("Received: " + msg);

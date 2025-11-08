@@ -132,10 +132,10 @@ void logBatteryState() {
   // Get thread-safe copy of battery status
   EssStatus ess = CAN::getEssStatus();
 
-  Serial.printf("[MAIN] Load %.1f | RC %.1f/%.1f | SOC %d%% | SOH %d%% | T "
-                "%.1f°C | V %.2f/%.2f\n",
-                ess.current, ess.ratedChargeCurrent, ess.ratedDischargeCurrent,
-                ess.charge, ess.health, ess.temperature, ess.voltage,
-                ess.ratedVoltage);
+  // Use Logger to output to both Serial and WebSerial
+  LOG_D("MAIN", "Load %.1f | RC %.1f/%.1f | SOC %d%% | SOH %d%% | T %.1f°C | V %.2f/%.2f",
+        ess.current, ess.ratedChargeCurrent, ess.ratedDischargeCurrent,
+        ess.charge, ess.health, ess.temperature, ess.voltage,
+        ess.ratedVoltage);
 #endif
 }
