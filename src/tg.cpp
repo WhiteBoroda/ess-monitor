@@ -1,6 +1,7 @@
 #include "tg.h"
 #include "can.h"
 #include "types.h"
+#include "logger.h"
 #include <FastBot.h>
 #include <HardwareSerial.h>
 #include <freertos/FreeRTOS.h>
