@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #ifndef VERSION
-#define VERSION "v0.1-dev"
+#define VERSION "v1.1-dev"
 #endif
 
 #define CFG_WIFI_STA "wifi.sta"
@@ -32,7 +32,7 @@
 extern bool needRestart;
 
 typedef struct Config {
-  bool wifiSTA = true;
+  bool wifiSTA = false;
   char wifiSSID[128] = "ITC24";
   char wifiPass[128] = "12345678";
 
