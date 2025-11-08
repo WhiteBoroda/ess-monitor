@@ -149,6 +149,44 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
     }
     .connected { background: #4CAF50; color: #000; }
     .disconnected { background: #F44336; color: #fff; }
+
+    .save-button-container {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 1000;
+    }
+    .save-button-container.show {
+      display: flex;
+    }
+    .save-button {
+      padding: 15px 30px;
+      background: #4CAF50;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1em;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      transition: all 0.3s;
+    }
+    .save-button:hover {
+      background: #45a049;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 8px rgba(0,0,0,0.4);
+    }
+    .unsaved-badge {
+      background: #FF9800;
+      color: #000;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -201,23 +239,23 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
     <div id="wifi" class="tab-content">
       <div class="card">
         <h2>WiFi Settings</h2>
-        <p style="margin-bottom:20px; color: #888;">Configure WiFi connection. Device will reboot after saving.</p>
-        <form id="wifiForm" onsubmit="saveSettings(event, 'wifi')">
-          <div class="form-group">
-            <label>
-              <input type="checkbox" id="wifiSTA"> Connect to existing network
-            </label>
+        <p style="margin-bottom:20px; color: #888;">Configure WiFi connection. Click "Save All Settings" when done.</p>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="wifiSTA" onchange="markChanged()"> Connect to existing network
+          </label>
+        </div>
+        <div class="form-group">
+          <label>SSID:</label>
+          <input type="text" id="wifiSSID" maxlength="128" oninput="markChanged()">
+        </div>
+        <div class="form-group">
+          <label>Password:</label>
+          <div style="position: relative;">
+            <input type="password" id="wifiPass" maxlength="128" oninput="markChanged()">
+            <button type="button" onclick="togglePassword('wifiPass')" style="position: absolute; right: 5px; top: 5px; padding: 5px 10px; background: #333; border: 1px solid #555; color: #e0e0e0; cursor: pointer; border-radius: 3px;">👁</button>
           </div>
-          <div class="form-group">
-            <label>SSID:</label>
-            <input type="text" id="wifiSSID" maxlength="128">
-          </div>
-          <div class="form-group">
-            <label>Password:</label>
-            <input type="password" id="wifiPass" maxlength="128">
-          </div>
-          <button type="submit" class="btn-primary">Save & Reboot</button>
-        </form>
+        </div>
       </div>
     </div>
 
@@ -226,29 +264,29 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
       <div class="card">
         <h2>Telegram Notifications</h2>
         <p style="margin-bottom:20px; color: #888;">Configure Telegram bot for battery alerts.</p>
-        <form id="telegramForm" onsubmit="saveSettings(event, 'telegram')">
-          <div class="form-group">
-            <label>
-              <input type="checkbox" id="tgEnabled"> Enable Telegram notifications
-            </label>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="tgEnabled" onchange="markChanged()"> Enable Telegram notifications
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Bot Token:</label>
+          <div style="position: relative;">
+            <input type="password" id="tgBotToken" maxlength="64" oninput="markChanged()">
+            <button type="button" onclick="togglePassword('tgBotToken')" style="position: absolute; right: 5px; top: 5px; padding: 5px 10px; background: #333; border: 1px solid #555; color: #e0e0e0; cursor: pointer; border-radius: 3px;">👁</button>
           </div>
-          <div class="form-group">
-            <label>Bot Token:</label>
-            <input type="text" id="tgBotToken" maxlength="64">
-            <small>Get token from @BotFather</small>
-          </div>
-          <div class="form-group">
-            <label>Chat ID:</label>
-            <input type="text" id="tgChatID" maxlength="32">
-            <small>Your Telegram chat ID</small>
-          </div>
-          <div class="form-group">
-            <label>Current threshold (Amps):</label>
-            <input type="number" id="tgThreshold" min="0" max="100" value="2">
-            <small>Alert if current exceeds this value</small>
-          </div>
-          <button type="submit" class="btn-primary">Save & Reboot</button>
-        </form>
+          <small>Get token from @BotFather</small>
+        </div>
+        <div class="form-group">
+          <label>Chat ID:</label>
+          <input type="text" id="tgChatID" maxlength="32" oninput="markChanged()">
+          <small>Your Telegram chat ID</small>
+        </div>
+        <div class="form-group">
+          <label>Current threshold (Amps):</label>
+          <input type="number" id="tgThreshold" min="0" max="100" value="2" oninput="markChanged()">
+          <small>Alert if current exceeds this value</small>
+        </div>
       </div>
     </div>
 
@@ -257,30 +295,30 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
       <div class="card">
         <h2>MQTT / Home Assistant</h2>
         <p style="margin-bottom:20px; color: #888;">Configure MQTT broker for Home Assistant integration.</p>
-        <form id="mqttForm" onsubmit="saveSettings(event, 'mqtt')">
-          <div class="form-group">
-            <label>
-              <input type="checkbox" id="mqttEnabled"> Enable MQTT
-            </label>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="mqttEnabled" onchange="markChanged()"> Enable MQTT
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Broker IP:</label>
+          <input type="text" id="mqttBroker" maxlength="16" oninput="markChanged()">
+        </div>
+        <div class="form-group">
+          <label>Port:</label>
+          <input type="number" id="mqttPort" min="1" max="65535" value="1883" oninput="markChanged()">
+        </div>
+        <div class="form-group">
+          <label>Username (optional):</label>
+          <input type="text" id="mqttUser" maxlength="64" oninput="markChanged()">
+        </div>
+        <div class="form-group">
+          <label>Password (optional):</label>
+          <div style="position: relative;">
+            <input type="password" id="mqttPass" maxlength="64" oninput="markChanged()">
+            <button type="button" onclick="togglePassword('mqttPass')" style="position: absolute; right: 5px; top: 5px; padding: 5px 10px; background: #333; border: 1px solid #555; color: #e0e0e0; cursor: pointer; border-radius: 3px;">👁</button>
           </div>
-          <div class="form-group">
-            <label>Broker IP:</label>
-            <input type="text" id="mqttBroker" maxlength="16">
-          </div>
-          <div class="form-group">
-            <label>Port:</label>
-            <input type="number" id="mqttPort" min="1" max="65535" value="1883">
-          </div>
-          <div class="form-group">
-            <label>Username (optional):</label>
-            <input type="text" id="mqttUser" maxlength="64">
-          </div>
-          <div class="form-group">
-            <label>Password (optional):</label>
-            <input type="password" id="mqttPass" maxlength="64">
-          </div>
-          <button type="submit" class="btn-primary">Save & Reboot</button>
-        </form>
+        </div>
       </div>
     </div>
 
@@ -289,19 +327,16 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
       <div class="card">
         <h2>Hardware Watchdog Timer</h2>
         <p style="margin-bottom:20px; color: #888;">Watchdog automatically reboots ESP32 if it freezes.</p>
-        <form id="watchdogForm" onsubmit="saveSettings(event, 'watchdog')">
-          <div class="form-group">
-            <label>
-              <input type="checkbox" id="wdEnabled" checked> Enable Hardware Watchdog
-            </label>
-          </div>
-          <div class="form-group">
-            <label>Timeout (seconds):</label>
-            <input type="number" id="wdTimeout" min="10" max="120" value="60">
-            <small>Recommended: 60 seconds</small>
-          </div>
-          <button type="submit" class="btn-primary">Save & Reboot</button>
-        </form>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="wdEnabled" checked onchange="markChanged()"> Enable Hardware Watchdog
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Timeout (seconds):</label>
+          <input type="number" id="wdTimeout" min="10" max="120" value="60" oninput="markChanged()">
+          <small>Recommended: 60 seconds</small>
+        </div>
       </div>
     </div>
 
@@ -324,8 +359,15 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
     </div>
   </div>
 
+  <!-- Floating Save Button (shown when settings changed) -->
+  <div id="saveButtonContainer" class="save-button-container">
+    <div class="unsaved-badge">⚠ Unsaved Changes</div>
+    <button onclick="saveAllSettings()" class="save-button">💾 Save All Settings & Reboot</button>
+  </div>
+
   <script>
     let ws;
+    let hasUnsavedChanges = false;
 
     function connectWs() {
       ws = new WebSocket('ws://' + window.location.host + '/ws');
@@ -358,7 +400,10 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
       if (data.voltage !== undefined) document.getElementById('voltage').textContent = data.voltage.toFixed(2) + ' V';
       if (data.current !== undefined) document.getElementById('current').textContent = data.current.toFixed(2) + ' A';
       if (data.temperature !== undefined) document.getElementById('temperature').textContent = data.temperature.toFixed(1) + ' °C';
-      if (data.canStatus !== undefined) document.getElementById('canStatus').textContent = data.canStatus;
+      if (data.canStatus !== undefined) {
+        document.getElementById('canStatus').textContent = data.canStatus;
+        document.getElementById('canStatus').className = data.canStatus === 'OK' ? 'value status-ok' : 'value status-error';
+      }
 
       // System info
       if (data.hostname !== undefined) {
@@ -389,6 +434,71 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
       document.querySelectorAll('.nav button').forEach(el => el.classList.remove('active'));
       document.getElementById(tabName).classList.add('active');
       event.target.classList.add('active');
+    }
+
+    function markChanged() {
+      hasUnsavedChanges = true;
+      document.getElementById('saveButtonContainer').classList.add('show');
+    }
+
+    function togglePassword(inputId) {
+      const input = document.getElementById(inputId);
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    function saveAllSettings() {
+      if (!hasUnsavedChanges) {
+        alert('No changes to save');
+        return;
+      }
+
+      if (!confirm('Save all settings and reboot the device?')) {
+        return;
+      }
+
+      // Collect all settings data
+      const allData = {
+        wifi: {
+          wifiSTA: document.getElementById('wifiSTA').checked,
+          wifiSSID: document.getElementById('wifiSSID').value,
+          wifiPass: document.getElementById('wifiPass').value
+        },
+        telegram: {
+          tgEnabled: document.getElementById('tgEnabled').checked,
+          tgBotToken: document.getElementById('tgBotToken').value,
+          tgChatID: document.getElementById('tgChatID').value,
+          tgThreshold: parseInt(document.getElementById('tgThreshold').value)
+        },
+        mqtt: {
+          mqttEnabled: document.getElementById('mqttEnabled').checked,
+          mqttBroker: document.getElementById('mqttBroker').value,
+          mqttPort: parseInt(document.getElementById('mqttPort').value),
+          mqttUser: document.getElementById('mqttUser').value,
+          mqttPass: document.getElementById('mqttPass').value
+        },
+        watchdog: {
+          wdEnabled: document.getElementById('wdEnabled').checked,
+          wdTimeout: parseInt(document.getElementById('wdTimeout').value)
+        }
+      };
+
+      // Send to new batch save endpoint
+      fetch('/api/settings/all', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(allData)
+      })
+      .then(r => r.json())
+      .then(result => {
+        if (result.success) {
+          hasUnsavedChanges = false;
+          document.getElementById('saveButtonContainer').classList.remove('show');
+          alert('All settings saved! Device will reboot in 3 seconds...');
+        } else {
+          alert('Failed to save settings: ' + (result.error || 'Unknown error'));
+        }
+      })
+      .catch(err => alert('Error: ' + err));
     }
 
     function loadAllSettings() {

@@ -234,6 +234,89 @@ void begin() {
       needRestart = true;
     });
 
+  // API: Save all settings at once
+  server.on("/api/settings/all", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL,
+    [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+      JsonDocument doc;
+      DeserializationError error = deserializeJson(doc, data, len);
+
+      if (error) {
+        request->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid JSON\"}");
+        return;
+      }
+
+      Pref.begin("ess");
+
+      // WiFi settings
+      if (doc["wifi"]["wifiSTA"].is<bool>()) {
+        Cfg.wifiSTA = doc["wifi"]["wifiSTA"].as<bool>();
+        Pref.putBool(CFG_WIFI_STA, Cfg.wifiSTA);
+      }
+      if (doc["wifi"]["wifiSSID"].is<const char*>()) {
+        strlcpy(Cfg.wifiSSID, doc["wifi"]["wifiSSID"].as<const char*>(), sizeof(Cfg.wifiSSID));
+        Pref.putString(CFG_WIFI_SSID, Cfg.wifiSSID);
+      }
+      if (doc["wifi"]["wifiPass"].is<const char*>()) {
+        strlcpy(Cfg.wifiPass, doc["wifi"]["wifiPass"].as<const char*>(), sizeof(Cfg.wifiPass));
+        Pref.putString(CFG_WIFI_PASS, Cfg.wifiPass);
+      }
+
+      // Telegram settings
+      if (doc["telegram"]["tgEnabled"].is<bool>()) {
+        Cfg.tgEnabled = doc["telegram"]["tgEnabled"].as<bool>();
+        Pref.putBool(CFG_TG_ENABLED, Cfg.tgEnabled);
+      }
+      if (doc["telegram"]["tgBotToken"].is<const char*>()) {
+        strlcpy(Cfg.tgBotToken, doc["telegram"]["tgBotToken"].as<const char*>(), sizeof(Cfg.tgBotToken));
+        Pref.putString(CFG_TG_BOT_TOKEN, Cfg.tgBotToken);
+      }
+      if (doc["telegram"]["tgChatID"].is<const char*>()) {
+        strlcpy(Cfg.tgChatID, doc["telegram"]["tgChatID"].as<const char*>(), sizeof(Cfg.tgChatID));
+        Pref.putString(CFG_TG_CHAT_ID, Cfg.tgChatID);
+      }
+      if (doc["telegram"]["tgThreshold"].is<int>()) {
+        Cfg.tgCurrentThreshold = doc["telegram"]["tgThreshold"].as<uint8_t>();
+        Pref.putUChar(CFG_TG_CURRENT_THRESHOLD, Cfg.tgCurrentThreshold);
+      }
+
+      // MQTT settings
+      if (doc["mqtt"]["mqttEnabled"].is<bool>()) {
+        Cfg.mqttEnabled = doc["mqtt"]["mqttEnabled"].as<bool>();
+        Pref.putBool(CFG_MQQTT_ENABLED, Cfg.mqttEnabled);
+      }
+      if (doc["mqtt"]["mqttBroker"].is<const char*>()) {
+        strlcpy(Cfg.mqttBrokerIp, doc["mqtt"]["mqttBroker"].as<const char*>(), sizeof(Cfg.mqttBrokerIp));
+        Pref.putString(CFG_MQQTT_BROKER_IP, Cfg.mqttBrokerIp);
+      }
+      if (doc["mqtt"]["mqttPort"].is<int>()) {
+        Cfg.mqttPort = doc["mqtt"]["mqttPort"].as<uint16_t>();
+        Pref.putUShort(CFG_MQQTT_PORT, Cfg.mqttPort);
+      }
+      if (doc["mqtt"]["mqttUser"].is<const char*>()) {
+        strlcpy(Cfg.mqttUsername, doc["mqtt"]["mqttUser"].as<const char*>(), sizeof(Cfg.mqttUsername));
+        Pref.putString(CFG_MQQTT_USERNAME, Cfg.mqttUsername);
+      }
+      if (doc["mqtt"]["mqttPass"].is<const char*>()) {
+        strlcpy(Cfg.mqttPassword, doc["mqtt"]["mqttPass"].as<const char*>(), sizeof(Cfg.mqttPassword));
+        Pref.putString(CFG_MQQTT_PASSWORD, Cfg.mqttPassword);
+      }
+
+      // Watchdog settings
+      if (doc["watchdog"]["wdEnabled"].is<bool>()) {
+        Cfg.watchdogEnabled = doc["watchdog"]["wdEnabled"].as<bool>();
+        Pref.putBool(CFG_WATCHDOG_ENABLED, Cfg.watchdogEnabled);
+      }
+      if (doc["watchdog"]["wdTimeout"].is<int>()) {
+        Cfg.watchdogTimeout = doc["watchdog"]["wdTimeout"].as<uint8_t>();
+        Pref.putUChar(CFG_WATCHDOG_TIMEOUT, Cfg.watchdogTimeout);
+      }
+
+      Pref.end();
+
+      request->send(200, "application/json", "{\"success\":true}");
+      needRestart = true;
+    });
+
   // API: Reboot
   server.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", "Rebooting...");
