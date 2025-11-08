@@ -58,11 +58,11 @@ bool initCAN() {
     attachInterrupt(INT_PIN, readCAN, LOW);
     pinMode(INT_PIN, INPUT);
     Serial.println(F("[CAN] Initializing MCP2515... OK."));
-    LOG_I("CAN", "MCP2515 initialized successfully at 500KBPS");
+//    LOG_I("CAN", "MCP2515 initialized successfully at 500KBPS");
     return true;
   }
   Serial.println(F("[CAN] Initializing MCP2515... ERROR!"));
-  LOG_E("CAN", "Failed to initialize MCP2515!");
+//  LOG_E("CAN", "Failed to initialize MCP2515!");
   return false;
 }
 
@@ -159,7 +159,7 @@ void writeCAN() {
   uint32_t timeSinceLastKeepAlive = millis() - lastMillis;
   if (timeSinceLastKeepAlive > 2000) {
     Serial.printf("[CAN] ⚠️ WARNING: %lu ms since last successful keep-alive!\n", timeSinceLastKeepAlive);
-    LOG_W("CAN", "WARNING: %lu ms since last successful keep-alive!", timeSinceLastKeepAlive);
+//    LOG_W("CAN", "WARNING: %lu ms since last successful keep-alive!", timeSinceLastKeepAlive);
   }
 }
 

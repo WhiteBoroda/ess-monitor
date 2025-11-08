@@ -1,6 +1,5 @@
 #include "hass.h"
 #include "can.h"
-#include "relay.h"
 
 extern Config Cfg;
 extern volatile EssStatus Ess;
@@ -97,15 +96,6 @@ void task(void *pvParameters) {
   bmsErrorSensor.setDeviceClass("enum");
   bmsErrorSensor.setName("BMS error");
 
-  if (RELAY::isEnabled()) {
-    restartButton.setIcon("mdi:restart");
-    restartButton.setName("Battery Restart");
-    restartButton.onCommand([](HAButton* sender) {
-      Serial.println("[HASS] Battery restart button pressed.");
-      RELAY::triggerPulse();
-    });
-  }
-
   IPAddress ip;
   ip.fromString(Cfg.mqttBrokerIp);
 
@@ -144,8 +134,7 @@ void task(void *pvParameters) {
   Serial.printf("[HASS] Device info: Name='%s', Model='%s', MAC=%02X:%02X:%02X:%02X:%02X:%02X\n",
                 "ESS Monitor", "ess-monitor", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   Serial.printf("[HASS] MQTT will publish to discovery prefix: homeassistant\n");
-  Serial.printf("[HASS] Number of entities to publish: %d sensors + 1 button\n",
-                RELAY::isEnabled() ? 10 : 10);
+  Serial.printf("[HASS] Number of entities to publish: %d sensors\n");
 
   // Run initial loops to publish discovery and establish connection
   for (int i = 0; i < 100; i++) {
