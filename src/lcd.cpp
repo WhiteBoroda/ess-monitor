@@ -91,7 +91,8 @@ void draw() {
     lcd->setCursor(90, 50);
     lcd->print(ess.bmsWarning);
   } else {
-    if (Cfg.wifiSTA) {
+    // Check real WiFi connection status, not config setting
+    if (WiFi.status() == WL_CONNECTED) {
       lcd->setCursor(0, 50);
       lcd->print(WiFi.localIP());
     } else {
