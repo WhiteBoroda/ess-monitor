@@ -79,9 +79,9 @@ void begin() {
     }
   });
 
-  // Serve main page
+  // Serve main page (PROGMEM data requires send_P despite deprecation warning)
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/html", HTML_PAGE);
+    request->send_P(200, "text/html", HTML_PAGE);
   });
 
   // API: Get all settings
