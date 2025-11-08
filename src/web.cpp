@@ -2,12 +2,14 @@
 #include "can.h"
 #include "types.h"
 #include "web_html.h"
+#include "ota_html.h"
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <WebSerialLite.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <Update.h>
 
 extern Config Cfg;
 extern Preferences Pref;
@@ -85,6 +87,64 @@ void begin() {
     response->addHeader("Cache-Control", "no-cache");
     request->send(response);
   });
+
+  // OTA Update page
+  server.on("/ota_update", HTTP_GET, [](AsyncWebServerRequest *request) {
+    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", OTA_HTML);
+    response->addHeader("Cache-Control", "no-cache");
+    request->send(response);
+  });
+
+  // OTA Update handler
+  server.on("/ota_update", HTTP_POST,
+    [](AsyncWebServerRequest *request) {
+      // Final response after upload completes
+      bool updateSuccessful = !Update.hasError();
+      AsyncWebServerResponse *response = request->beginResponse(200, "text/plain",
+        updateSuccessful ? "Update Success! Rebooting..." : "Update Failed!");
+      response->addHeader("Connection", "close");
+      request->send(response);
+
+      if (updateSuccessful) {
+        Serial.println("[WEB] OTA Update successful, rebooting...");
+        delay(1000);
+        ESP.restart();
+      } else {
+        Serial.printf("[WEB] OTA Update failed, error: %s\n", Update.errorString());
+      }
+    },
+    [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+      // Upload handler - called multiple times with chunks of data
+      if (index == 0) {
+        Serial.printf("[WEB] OTA Update started: %s\n", filename.c_str());
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+          Update.printError(Serial);
+        }
+      }
+
+      if (len) {
+        if (Update.write(data, len) != len) {
+          Update.printError(Serial);
+        } else {
+          // Progress reporting
+          static size_t lastPercent = 0;
+          size_t percent = (Update.progress() * 100) / Update.size();
+          if (percent != lastPercent && percent % 10 == 0) {
+            Serial.printf("[WEB] OTA Progress: %d%%\n", percent);
+            lastPercent = percent;
+          }
+        }
+      }
+
+      if (final) {
+        if (Update.end(true)) {
+          Serial.printf("[WEB] OTA Update Success: %u bytes\n", index + len);
+        } else {
+          Update.printError(Serial);
+        }
+      }
+    }
+  );
 
   // API: Get all settings
   server.on("/api/settings", HTTP_GET, [](AsyncWebServerRequest *request) {

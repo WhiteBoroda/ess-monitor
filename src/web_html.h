@@ -354,6 +354,7 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
           <tr><td>Free Heap:</td><td id="sysFreeHeap">--</td></tr>
         </table>
         <br>
+        <button onclick="window.location.href='/ota_update'" class="btn-primary" style="margin-right: 10px;">🔄 OTA Firmware Update</button>
         <button onclick="rebootDevice()" class="btn-danger">Reboot Device</button>
       </div>
     </div>
