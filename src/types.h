@@ -32,9 +32,9 @@
 extern bool needRestart;
 
 typedef struct Config {
-  bool wifiSTA = false;
-  char wifiSSID[128];
-  char wifiPass[128];
+  bool wifiSTA = true;
+  char wifiSSID[128] = "ITC24";
+  char wifiPass[128] = "12345678";
 
   char hostname[32] = "ess-monitor";
 
