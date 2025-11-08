@@ -2,6 +2,7 @@
 #include "hass.h"
 #include "lcd.h"
 #include "logger.h"
+#include "ota.h"
 #include "tg.h"
 #include "types.h"
 #include "web.h"
@@ -28,6 +29,11 @@ void setup() {
 
   // Initialize WiFi with captive portal
   bool wifiConnected = WiFiMgr::begin();
+
+  // Initialize OTA updates (must be after WiFi)
+  if (wifiConnected) {
+    OTA::begin();
+  }
 
   // Initialize web server first (to setup WebSerial for logging)
   WEB::begin();
@@ -65,6 +71,9 @@ void setup() {
 void loop() {
   static uint32_t previousMillis;
   uint32_t currentMillis = millis();
+
+  // Handle OTA updates
+  OTA::handle();
 
   // Reset Watchdog Timer to prevent reboot
   if (Cfg.watchdogEnabled) {
