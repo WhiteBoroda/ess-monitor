@@ -49,7 +49,7 @@ void begin() {
       WebSerial.println("========== ESS Monitor Status ==========");
       WebSerial.println("Version: " + String(VERSION));
       WebSerial.println("Hostname: " + String(Cfg.hostname));
-      WebSerial.println("WiFi: " + (WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected"));
+      WebSerial.println(String("WiFi: ") + (WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected"));
       if (WiFi.status() == WL_CONNECTED) {
         WebSerial.println("  SSID: " + WiFi.SSID());
         WebSerial.println("  IP: " + WiFi.localIP().toString());
