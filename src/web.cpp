@@ -24,28 +24,25 @@ AsyncWebSocket ws("/ws");
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
                AwsEventType type, void *arg, uint8_t *data, size_t len) {
   if (type == WS_EVT_CONNECT) {
-    Serial.printf("[WS] Client #%u connected, Total clients: %d\n", client->id(), ws.count());
+    Serial.printf("[WS] Client #%u connected, Total clients: %d, Free Heap: %d KB\n",
+                  client->id(), ws.count(), ESP.getFreeHeap() / 1024);
 
-    // Limit to 2 concurrent WebSocket clients to save memory
-    if (ws.count() > 2) {
-      Serial.println("[WS] Too many clients, disconnecting oldest");
-      // Close the oldest client (first in the list)
-      auto clients = ws.getClients();
-      if (!clients.empty()) {
-        auto firstClient = clients.front();
-        ws.close(firstClient->id());
-      }
-    }
+    // Clean up disconnected clients to save memory
+    ws.cleanupClients();
 
     updateLiveData();
   } else if (type == WS_EVT_DISCONNECT) {
     Serial.printf("[WS] Client #%u disconnected, Total clients: %d\n", client->id(), ws.count());
+    ws.cleanupClients();
   }
 }
 
 // Initialize web server
 void begin() {
   Serial.println("[WEB] Initializing async web server...");
+
+  // Limit WebSocket clients to save memory
+  ws.setCloseClientOnQueueFull(true);
 
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
@@ -108,16 +105,15 @@ void begin() {
       return;
     }
 
-    AsyncWebServerResponse *response = request->beginResponse(200, "text/html", HTML_PAGE);
-    request->send(response);
+    // Use send_P to send PROGMEM data directly without RAM buffering
+    request->send_P(200, "text/html", HTML_PAGE);
     Serial.printf("[WEB] Main page sent, Free Heap after: %d KB\n", ESP.getFreeHeap() / 1024);
   });
 
   // OTA Update page
   server.on("/ota_update", HTTP_GET, [](AsyncWebServerRequest *request) {
     Serial.printf("[WEB] OTA page requested, Free Heap: %d KB\n", ESP.getFreeHeap() / 1024);
-    AsyncWebServerResponse *response = request->beginResponse(200, "text/html", OTA_HTML);
-    request->send(response);
+    request->send_P(200, "text/html", OTA_HTML);
   });
 
   // OTA Update handler
