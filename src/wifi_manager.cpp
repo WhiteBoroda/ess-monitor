@@ -44,6 +44,11 @@ bool begin() {
   // 4. Restart and connect to configured WiFi
   bool connected = wifiManager.autoConnect(apSSID.c_str(), "12345678");
 
+  // IMPORTANT: Stop and cleanup the config server to free port 80
+  // The main web server will use port 80 after this
+  configServer.end();
+  dnsServer.stop();
+
   if (connected) {
     apMode = false;
     Serial.println("[WiFi] ✓ Connected to WiFi!");
@@ -59,6 +64,9 @@ bool begin() {
     } else {
       Serial.println("[WiFi] ✗ mDNS failed to start");
     }
+
+    // Give some time for cleanup
+    delay(100);
 
     return true;
   } else {
