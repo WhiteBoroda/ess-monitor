@@ -38,6 +38,8 @@ void begin() {
     Serial.printf("[LOGGER] Syslog enabled: %s:%d, level: %d\n",
                   Cfg.syslogServer, Cfg.syslogPort, currentLevel);
 
+    // TEMPORARILY DISABLED - Debugging bootloop issue
+    /*
     // Send startup message with INFO level
     syslog.logf(LEVEL_INFO, "ESS Monitor started, version: %s, log level: %d (%s)",
                 VERSION, currentLevel,
@@ -48,6 +50,8 @@ void begin() {
                 currentLevel == 4 ? "WARNING" :
                 currentLevel == 5 ? "NOTICE" :
                 currentLevel == 6 ? "INFO" : "DEBUG");
+    */
+    Serial.println("[LOGGER] NOTE: Syslog output temporarily disabled for debugging");
   } else {
     enabled = false;
     Serial.printf("[LOGGER] Syslog disabled, log level: %d\n", currentLevel);
@@ -76,6 +80,9 @@ static void logFormatted(Level level, const char* tag, const char* message) {
   // Always write to Serial
   Serial.printf("[%s] %s\n", tag, message);
 
+  // TEMPORARILY DISABLED - Debugging bootloop issue
+  // TODO: Re-enable after fixing race condition
+  /*
   // Send to syslog if enabled and level is <= configured level
   // Lower number = higher priority (EMERG=0, DEBUG=7)
   if (isEnabled() && WiFi.status() == WL_CONNECTED && level <= currentLevel && syslogMutex != NULL) {
@@ -89,6 +96,7 @@ static void logFormatted(Level level, const char* tag, const char* message) {
       xSemaphoreGive(syslogMutex);
     }
   }
+  */
 }
 
 void log(Level level, const char* tag, const char* format, ...) {
