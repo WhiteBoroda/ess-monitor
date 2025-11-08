@@ -2,12 +2,18 @@
 #define _WEB_H_
 
 #include <stdint.h>
+#include <ESPAsyncWebServer.h>
 
 namespace WEB {
 
-void begin(uint8_t core, uint8_t priority);
+// Initialize web server (call after WiFi is connected)
+void begin();
 
-void backToWebRoot();
+// Get reference to the web server instance
+AsyncWebServer& getServer();
+
+// Update live data for WebSocket clients
+void updateLiveData();
 
 } // namespace WEB
 

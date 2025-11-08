@@ -5,48 +5,51 @@
 #include "tg.h"
 #include "types.h"
 #include "web.h"
+#include "wifi_manager.h"
 #include <Arduino.h>
-#include <IPAddress.h>
 #include <Preferences.h>
-#include <WiFi.h>
-#include <WiFiMulti.h>
 #include <esp_task_wdt.h>
-
-WiFiMulti wifiMulti;
 
 Preferences Pref;
 Config Cfg;
 volatile EssStatus Ess;
 
 void initConfig();
-
-bool wifiEverConnected = false;
+void logBatteryState();
 
 bool needRestart = false;
 
-bool initWiFi();
-void logBatteryState();
-
 void setup() {
   Serial.begin(115200);
+  Serial.println("\n\n========== ESS Monitor Starting ==========");
 
+  // Load configuration from flash
   initConfig();
 
-  if (initWiFi()) {
-    // Initialize Logger after WiFi connection
-    Logger::begin();
+  // Initialize WiFi with captive portal
+  bool wifiConnected = WiFiMgr::begin();
 
-    if (Cfg.mqttEnabled) {
-      HASS::begin(1, 1);
-    }
-    if (Cfg.tgEnabled) {
-      TG::begin(1, 1);
-    }
+  // Initialize Logger (works with WebSerial)
+  Logger::begin();
+
+  // Initialize CAN bus
+  CAN::begin(1, 1);
+
+  // Initialize web server (works in both AP and STA modes)
+  WEB::begin();
+
+  // Initialize LCD display
+  LCD::begin(1, 1);
+
+  // Initialize MQTT if WiFi connected and enabled
+  if (wifiConnected && Cfg.mqttEnabled) {
+    HASS::begin(1, 1);
   }
 
-  CAN::begin(1, 1); // TODO: wait for success for tg and hass to start
-  WEB::begin(1, 1);
-  LCD::begin(1, 1);
+  // Initialize Telegram if WiFi connected and enabled
+  if (wifiConnected && Cfg.tgEnabled) {
+    TG::begin(1, 1);
+  }
 
   // Initialize Hardware Watchdog Timer
   if (Cfg.watchdogEnabled) {
@@ -68,18 +71,21 @@ void loop() {
     esp_task_wdt_reset();
   }
 
-  // WiFi reconnection - only in STA mode
-  if (Cfg.wifiSTA && wifiEverConnected) {
-    wifiMulti.run();
-  }
-
-  // Every 5 seconds
-  if (currentMillis - previousMillis >= 5000 * 1) {
+  // Every 3 seconds: update WebSocket data and log battery state
+  if (currentMillis - previousMillis >= 3000) {
     previousMillis = currentMillis;
 
+    // Update live data for web clients
+    WEB::updateLiveData();
+
+    // Log battery state (if DEBUG defined)
     logBatteryState();
-    //SoftReset
-    if (needRestart){ESP.restart();};
+
+    // Soft restart if requested
+    if (needRestart) {
+      Serial.println("[MAIN] Restarting device...");
+      ESP.restart();
+    }
   }
 }
 
@@ -119,71 +125,6 @@ void initConfig() {
   Cfg.syslogLevel = Pref.getUChar(CFG_SYSLOG_LEVEL, Cfg.syslogLevel);
 
   Pref.end();
-}
-
-bool initWiFi() {
-  if (Cfg.wifiSTA && Cfg.wifiSSID != NULL && Cfg.wifiSSID[0] != '\0') {
-    Serial.printf("Connecting to %s...", Cfg.wifiSSID);
-
-    WiFi.mode(WIFI_STA);
-    WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
-    WiFi.setHostname(Cfg.hostname);
-
-    // Reset WiFiMulti
-    wifiMulti = WiFiMulti();
-    wifiMulti.addAP(Cfg.wifiSSID, Cfg.wifiPass);
-
-    uint32_t previousMillis = millis();
-    while (millis() - previousMillis < 20000) {
-      if (wifiMulti.run() == WL_CONNECTED) {
-        Serial.println(" OK.");
-        Serial.println("IP Address: " + WiFi.localIP().toString());
-        Serial.printf("mDNS hostname: '%s.local'\n", Cfg.hostname);
-        wifiEverConnected = true;
-        return true;
-      }
-      delay(500);
-      Serial.print(".");
-    }
-
-    Serial.println("Could not connect to WiFi network in 20 seconds.");
-  }
-
-  if (!wifiEverConnected) {
-    Serial.println("Starting WiFi access point.");
-
-    // Fully disconnect and reset WiFi
-    WiFi.disconnect(true);
-    WiFi.softAPdisconnect(true);
-    delay(100);
-
-    // Configure AP mode
-    IPAddress AP_IP(192, 168, 4, 1);
-    IPAddress AP_PFX(255, 255, 255, 0);
-
-    WiFi.mode(WIFI_AP);
-    delay(100);
-
-    WiFi.softAPConfig(AP_IP, AP_IP, AP_PFX);
-
-    // Create AP with explicit channel and max connections
-    // Channel 1, no hidden SSID, max 4 connections
-    bool apStarted = WiFi.softAP(Cfg.hostname, "12345678", 1, false, 4);
-
-    if (apStarted) {
-      Serial.printf("✓ Access Point started successfully\n");
-      Serial.printf("  SSID: '%s'\n", Cfg.hostname);
-      Serial.printf("  Password: '12345678'\n");
-      Serial.printf("  IP Address: %s\n", WiFi.softAPIP().toString().c_str());
-      Serial.printf("  Connect to this WiFi network to configure the device\n");
-    } else {
-      Serial.println("✗ Failed to start Access Point!");
-    }
-
-    return false;
-  }
-
-  return false;
 }
 
 void logBatteryState() {

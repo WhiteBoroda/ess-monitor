@@ -1,365 +1,316 @@
 #include "web.h"
 #include "can.h"
 #include "types.h"
-#include <GyverPortal.h>
-#include <HardwareSerial.h>
+#include <ArduinoJson.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <WebSerialLite.h>
 #include <Preferences.h>
 
 extern Config Cfg;
 extern Preferences Pref;
-extern volatile EssStatus Ess;
+extern bool needRestart;
 
 namespace WEB {
 
-GyverPortal portal;
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
 
-void begin(uint8_t core, uint8_t priority);
-void task(void *pvParameters);
-void loop();
-void buildPortal();
-void onPortalUpdate();
-
-void begin(uint8_t core, uint8_t priority) {
-  xTaskCreatePinnedToCore(task, "web_task", 20000, NULL, priority, NULL, core);
-}
-
-void task(void *pvParameters) {
-  Serial.printf("[WEB] Task running in core %d.\n", (uint32_t)xPortGetCoreID());
-  portal.enableOTA();
-  portal.attachBuild(buildPortal);
-  portal.attach(onPortalUpdate);
-  portal.start(Cfg.hostname);
-
-  while (1) {
-    loop();
-    vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay to prevent task starvation and WDT
+// WebSocket event handler
+void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
+               AwsEventType type, void *arg, uint8_t *data, size_t len) {
+  if (type == WS_EVT_CONNECT) {
+    Serial.printf("[WS] Client #%u connected\n", client->id());
+    // Send initial data
+    updateLiveData();
+  } else if (type == WS_EVT_DISCONNECT) {
+    Serial.printf("[WS] Client #%u disconnected\n", client->id());
   }
-
-  Serial.println("[WEB] Task exited.");
-  vTaskDelete(NULL);
 }
 
-void loop() { portal.tick(); }
+// Initialize web server
+void begin() {
+  Serial.println("[WEB] Initializing async web server...");
 
-void buildPortal() {
-  GP.BUILD_BEGIN(GP_DARK);
-  GP.setTimeout(1000);
-  GP.ONLINE_CHECK(10000);
-  GP.UPDATE("state.charge,state.health,state.voltage,state.current,state."
-            "temperature,state.limits,can.keepalive,can.failures,can.lasttime",
-            3000);
-  GP.PAGE_TITLE(Cfg.hostname);
-  GP.NAV_TABS("ESS,WiFi,Telegram,MQTT,Watchdog,System");
-  // Status tab
-  GP.NAV_BLOCK_BEGIN();
-  GP.GRID_BEGIN();
-  M_BLOCK(GP_TAB, "", "Charge", GP.TITLE("-", "state.charge"));
-  M_BLOCK(GP_TAB, "", "Load", GP_DEFAULT, GP.TITLE("-", "state.current"));
-  GP.GRID_END();
-  GP.BLOCK_BEGIN(GP_THIN);
-  GP.TABLE_BEGIN();
-  GP.TR();
-  GP.TD(GP_LEFT);
-  GP.PLAIN(F("Voltage"));
-  GP.TD(GP_RIGHT);
-  GP.BOLD("-", "state.voltage");
-  GP.TR();
-  GP.TD(GP_LEFT);
-  GP.PLAIN(F("Temperature"));
-  GP.TD(GP_RIGHT);
-  GP.BOLD("-", "state.temperature");
-  GP.TR();
-  GP.TD(GP_LEFT);
-  GP.PLAIN(F("Health"));
-  GP.TD(GP_RIGHT);
-  GP.BOLD("-", "state.health");
-  GP.TR();
-  GP.TD(GP_LEFT);
-  GP.PLAIN(F("Battery limits"));
-  GP.TD(GP_RIGHT);
-  GP.BOLD("-", "state.limits");
-  GP.TABLE_END();
-  GP.BLOCK_END();
-  GP.HR();
-  GP.SEND(VERSION);
-  GP.NAV_BLOCK_END();
-  // WiFi settings tab
-  GP.NAV_BLOCK_BEGIN();
-  GP.FORM_BEGIN("/wifi");
-  GP.BLOCK_BEGIN();
-  GP.LABEL("Connect to existing network");
-  GP.BREAK();
-  GP.SWITCH("wifi.sta", Cfg.wifiSTA);
-  GP.BLOCK_END();
-  GP.BREAK();
-  GP.LABEL("SSID");
-  GP.TEXT("wifi.ssid", "", Cfg.wifiSSID, "", 128);
-  GP.LABEL("Password");
-  GP.PASS("wifi.pass", "", Cfg.wifiPass, "", 128);
-  GP.BREAK();
-  GP.SUBMIT("Save and reboot");
-  GP.FORM_END();
-  GP.NAV_BLOCK_END();
-  // Telegram settings tab
-  GP.NAV_BLOCK_BEGIN();
-  GP.FORM_BEGIN("/tg");
-  GP.BLOCK_BEGIN();
-  GP.LABEL("Enable Telegram notifications");
-  GP.BREAK();
-  GP.SWITCH("tg.enabled", Cfg.tgEnabled);
-  GP.BLOCK_END();
-  GP.BREAK();
-  GP.LABEL("Bot token");
-  GP.PASS("tg.bot_token", "", Cfg.tgBotToken, "", sizeof(Cfg.tgBotToken));
-  GP.LABEL("Chat ID");
-  GP.TEXT("tg.chat_id", "", Cfg.tgChatID, "", sizeof(Cfg.tgChatID));
-  GP.LABEL("Current threshold in Amps for alerts");
-  char tgCurrentbuf[6];
-  itoa(Cfg.tgCurrentThreshold, tgCurrentbuf, 10);
-  GP.TEXT("tg.current_threshold", "", tgCurrentbuf, "", sizeof(tgCurrentbuf));
-  GP.BREAK();
-  GP.SUBMIT("Save and reboot");
-  GP.FORM_END();
-  GP.NAV_BLOCK_END();
-  // MQTT
-  GP.NAV_BLOCK_BEGIN();
-  GP.FORM_BEGIN("/mqtt");
-  GP.BLOCK_BEGIN();
-  GP.LABEL("Enable MQTT");
-  GP.BREAK();
-  GP.SWITCH("mqtt.enabled", Cfg.mqttEnabled);
-  GP.BLOCK_END();
-  GP.BREAK();
-  GP.LABEL("Broker IP address");
-  GP.TEXT("mqtt.broker_ip", "", Cfg.mqttBrokerIp, "", sizeof(Cfg.mqttBrokerIp));
-  GP.LABEL("Port (default: 1883)");
-  char mqttPortBuf[6];
-  itoa(Cfg.mqttPort, mqttPortBuf, 10);
-  GP.TEXT("mqtt.port", "", mqttPortBuf, "", sizeof(mqttPortBuf));
-  GP.LABEL("Username (optional)");
-  GP.TEXT("mqtt.username", "", Cfg.mqttUsername, "", sizeof(Cfg.mqttUsername));
-  GP.LABEL("Password (optional)");
-  GP.PASS("mqtt.password", "", Cfg.mqttPassword, "", sizeof(Cfg.mqttPassword));
-  GP.BREAK();
-  GP.SUBMIT("Save and reboot");
-  GP.FORM_END();
-  GP.NAV_BLOCK_END();
-  // Watchdog tab
-  GP.NAV_BLOCK_BEGIN();
-  GP.FORM_BEGIN("/watchdog");
-  GP.BLOCK_BEGIN();
-  GP.LABEL("Enable Hardware Watchdog Timer");
-  GP.BREAK();
-  GP.SWITCH("watchdog.enabled", Cfg.watchdogEnabled);
-  GP.BLOCK_END();
-  GP.BREAK();
-  GP.LABEL("Timeout in seconds (10-120)");
-  char watchdogTimeoutBuf[4];
-  itoa(Cfg.watchdogTimeout, watchdogTimeoutBuf, 10);
-  GP.TEXT("watchdog.timeout", "", watchdogTimeoutBuf, "", sizeof(watchdogTimeoutBuf));
-  GP.HR();
-  GP.LABEL("ℹ️ Watchdog automatically reboots ESP32 if it freezes.");
-  GP.LABEL("Recommended: Enabled with 30 second timeout.");
-  GP.BREAK();
-  GP.SUBMIT("Save and reboot");
-  GP.FORM_END();
-  GP.NAV_BLOCK_END();
-  // Syslog tab
-  GP.NAV_BLOCK_BEGIN();
-  GP.FORM_BEGIN("/syslog");
-  GP.BLOCK_BEGIN();
-  GP.LABEL("Enable Syslog (network logging)");
-  GP.BREAK();
-  GP.SWITCH("syslog.enabled", Cfg.syslogEnabled);
-  GP.BLOCK_END();
-  GP.BREAK();
-  GP.LABEL("Syslog server (IP or hostname)");
-  GP.TEXT("syslog.server", "", Cfg.syslogServer, "", sizeof(Cfg.syslogServer));
-  GP.LABEL("Port (default: 514)");
-  char syslogPortBuf[6];
-  itoa(Cfg.syslogPort, syslogPortBuf, 10);
-  GP.TEXT("syslog.port", "", syslogPortBuf, "", sizeof(syslogPortBuf));
-  GP.LABEL("Log level");
-  GP.SELECT("syslog.level", "EMERG,ALERT,CRIT,ERROR,WARNING,NOTICE,INFO,DEBUG", Cfg.syslogLevel);
-  GP.HR();
-  GP.LABEL("ℹ️ Send logs to syslog server over network (UDP).");
-  GP.LABEL("Compatible with Home Assistant Syslog addon, rsyslog, etc.");
-  GP.LABEL("View logs in real-time on your syslog server.");
-  GP.BREAK();
-  GP.SUBMIT("Save and reboot");
-  GP.FORM_END();
-  GP.NAV_BLOCK_END();
-  // System tab
-  GP.NAV_BLOCK_BEGIN();
-  GP.SYSTEM_INFO();
-  GP.HR();
-  GP.BLOCK_BEGIN(GP_THIN, "", "CAN Bus Status");
-  GP.TABLE_BEGIN();
-  GP.TR();
-  GP.TD(GP_LEFT);
-  GP.PLAIN(F("Keep-alive sent"));
-  GP.TD(GP_RIGHT);
-  GP.BOLD("-", "can.keepalive");
-  GP.TR();
-  GP.TD(GP_LEFT);
-  GP.PLAIN(F("Send failures"));
-  GP.TD(GP_RIGHT);
-  GP.BOLD("-", "can.failures");
-  GP.TR();
-  GP.TD(GP_LEFT);
-  GP.PLAIN(F("Last keep-alive"));
-  GP.TD(GP_RIGHT);
-  GP.BOLD("-", "can.lasttime");
-  GP.TABLE_END();
-  GP.BLOCK_END();
-  GP.HR();
-  GP.OTA_FIRMWARE();
-  GP.NAV_BLOCK_END();
-  GP.BUILD_END();
-}
+  // Add WebSocket handler
+  ws.onEvent(onWsEvent);
+  server.addHandler(&ws);
 
-void onPortalUpdate() {
-  if (portal.update()) {
-    // Get thread-safe copy of battery status
+  // Initialize WebSerial for console logs
+  WebSerial.begin(&server);
+  Serial.println("[WEB] WebSerial initialized at /webserial");
+
+  // Serve main page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String html = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESS Monitor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      padding: 20px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { color: #4CAF50; margin-bottom: 30px; font-size: 2em; }
+    .nav {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .nav button {
+      padding: 10px 20px;
+      background: #1e1e1e;
+      border: 1px solid #333;
+      color: #e0e0e0;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.3s;
+    }
+    .nav button:hover { background: #2a2a2a; }
+    .nav button.active {
+      background: #4CAF50;
+      border-color: #4CAF50;
+      color: #000;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 15px;
+    }
+    .card h3 {
+      color: #888;
+      font-size: 0.9em;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    .card .value {
+      font-size: 1.8em;
+      font-weight: bold;
+      color: #4CAF50;
+    }
+    .status-ok { color: #4CAF50; }
+    .status-warning { color: #FF9800; }
+    .status-error { color: #F44336; }
+    .connection-status {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 10px 15px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+    .connected { background: #4CAF50; color: #000; }
+    .disconnected { background: #F44336; color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚡ ESS Monitor</h1>
+
+    <div class="connection-status disconnected" id="connStatus">Disconnected</div>
+
+    <div class="nav">
+      <button onclick="showTab('status')" class="active">Status</button>
+      <button onclick="showTab('settings')">Settings</button>
+      <button onclick="window.open('/webserial', '_blank')">Console</button>
+    </div>
+
+    <!-- Status Tab -->
+    <div id="status" class="tab-content active">
+      <div class="grid">
+        <div class="card">
+          <h3>Battery Charge</h3>
+          <div class="value" id="charge">--%</div>
+        </div>
+        <div class="card">
+          <h3>Health</h3>
+          <div class="value" id="health">--%</div>
+        </div>
+        <div class="card">
+          <h3>Voltage</h3>
+          <div class="value" id="voltage">-- V</div>
+        </div>
+        <div class="card">
+          <h3>Current</h3>
+          <div class="value" id="current">-- A</div>
+        </div>
+        <div class="card">
+          <h3>Temperature</h3>
+          <div class="value" id="temperature">-- °C</div>
+        </div>
+        <div class="card">
+          <h3>CAN Status</h3>
+          <div class="value" id="canStatus">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="settings" class="tab-content">
+      <div class="card">
+        <h3>System Information</h3>
+        <p>Hostname: <span id="hostname">--</span></p>
+        <p>IP Address: <span id="ipAddr">--</span></p>
+        <p>Version: v0.1-dev</p>
+        <br>
+        <button onclick="rebootDevice()" style="padding: 10px 20px; background: #F44336; border: none; color: white; cursor: pointer; border-radius: 4px;">Reboot Device</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let ws;
+    let wsReconnectTimer;
+
+    function connectWs() {
+      ws = new WebSocket('ws://' + window.location.host + '/ws');
+
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        document.getElementById('connStatus').textContent = 'Connected';
+        document.getElementById('connStatus').className = 'connection-status connected';
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        document.getElementById('connStatus').textContent = 'Disconnected';
+        document.getElementById('connStatus').className = 'connection-status disconnected';
+        wsReconnectTimer = setTimeout(connectWs, 3000);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          updateData(data);
+        } catch (e) {
+          console.error('Failed to parse data:', e);
+        }
+      };
+    }
+
+    function updateData(data) {
+      if (data.charge !== undefined) {
+        document.getElementById('charge').textContent = data.charge + '%';
+        document.getElementById('charge').className = data.charge > 20 ? 'value status-ok' : 'value status-warning';
+      }
+      if (data.health !== undefined) {
+        document.getElementById('health').textContent = data.health + '%';
+      }
+      if (data.voltage !== undefined) {
+        document.getElementById('voltage').textContent = data.voltage.toFixed(2) + ' V';
+      }
+      if (data.current !== undefined) {
+        document.getElementById('current').textContent = data.current.toFixed(2) + ' A';
+      }
+      if (data.temperature !== undefined) {
+        document.getElementById('temperature').textContent = data.temperature.toFixed(1) + ' °C';
+      }
+      if (data.canStatus !== undefined) {
+        document.getElementById('canStatus').textContent = data.canStatus;
+      }
+      if (data.hostname !== undefined) {
+        document.getElementById('hostname').textContent = data.hostname;
+      }
+      if (data.ip !== undefined) {
+        document.getElementById('ipAddr').textContent = data.ip;
+      }
+    }
+
+    function showTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav button').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabName).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    function rebootDevice() {
+      if (confirm('Are you sure you want to reboot the device?')) {
+        fetch('/api/reboot', {method: 'POST'})
+          .then(() => alert('Device is rebooting...'))
+          .catch(err => alert('Reboot failed: ' + err));
+      }
+    }
+
+    // Connect on load
+    connectWs();
+  </script>
+</body>
+</html>
+)rawliteral";
+    request->send(200, "text/html", html);
+  });
+
+  // API endpoint for reboot
+  server.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", "Rebooting...");
+    needRestart = true;
+  });
+
+  // API endpoint for live data (JSON)
+  server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *request) {
+    JsonDocument doc;
     EssStatus ess = CAN::getEssStatus();
 
-    if (portal.update("state.charge")) {
-      portal.answer(String(ess.charge) + "%");
-    }
-    if (portal.update("state.health")) {
-      portal.answer(String(ess.health) + "%");
-    }
-    if (portal.update("state.current")) {
-      portal.answer(String(ess.current, 1) + "A");
-    }
-    if (portal.update("state.temperature")) {
-      portal.answer(String(ess.temperature, 1) + "°C");
-    }
-    if (portal.update("state.voltage")) {
-      portal.answer(String(ess.voltage, 2) + " / " +
-                    String(ess.ratedVoltage, 2) + " V");
-    }
-    if (portal.update("state.limits")) {
-      portal.answer(String(ess.ratedChargeCurrent, 1) + " / " +
-                    String(ess.ratedDischargeCurrent, 1) + " A");
-    }
-    if (portal.update("can.keepalive")) {
-      portal.answer(String(CAN::getKeepAliveCounter()));
-    }
-    if (portal.update("can.failures")) {
-      portal.answer(String(CAN::getKeepAliveFailures()));
-    }
-    if (portal.update("can.lasttime")) {
-      uint32_t timeSince = CAN::getTimeSinceLastKeepAlive();
-      portal.answer(String(timeSince / 1000.0, 1) + " s ago");
-    }
-  }
-  if (portal.form()) {
-    // Open Preferences for writing
-    Pref.begin("ess");
+    doc["charge"] = ess.charge;
+    doc["health"] = ess.health;
+    doc["voltage"] = ess.voltage;
+    doc["current"] = ess.current;
+    doc["temperature"] = ess.temperature;
+    doc["canStatus"] = "OK";
+    doc["hostname"] = Cfg.hostname;
+    doc["ip"] = WiFi.localIP().toString();
 
-    if (portal.form("/wifi")) {
-      portal.copyBool("wifi.sta", Cfg.wifiSTA);
-      portal.copyStr("wifi.ssid", Cfg.wifiSSID, sizeof(Cfg.wifiSSID));
-      portal.copyStr("wifi.pass", Cfg.wifiPass, sizeof(Cfg.wifiPass));
+    String json;
+    serializeJson(doc, json);
+    request->send(200, "application/json", json);
+  });
 
-      Pref.putBool(CFG_WIFI_STA, Cfg.wifiSTA);
-      Pref.putString(CFG_WIFI_SSID, Cfg.wifiSSID);
-      Pref.putString(CFG_WIFI_PASS, Cfg.wifiPass);
-
-      Pref.end();
-      backToWebRoot();
-      needRestart = true;
-    } else if (portal.form("/tg")) {
-      portal.copyBool("tg.enabled", Cfg.tgEnabled);
-      portal.copyStr("tg.bot_token", Cfg.tgBotToken, sizeof(Cfg.tgBotToken));
-      portal.copyStr("tg.chat_id", Cfg.tgChatID, sizeof(Cfg.tgChatID));
-
-      int thr = (int)Cfg.tgCurrentThreshold; 
-      portal.copyInt("tg.current_threshold", thr);
-      if (thr < 0)   thr = 0;
-      if (thr > 100) thr = 100;
-      Cfg.tgCurrentThreshold = (uint8_t)thr;
-
-      Pref.putBool(CFG_TG_ENABLED, Cfg.tgEnabled);
-      Pref.putString(CFG_TG_BOT_TOKEN, Cfg.tgBotToken);
-      Pref.putString(CFG_TG_CHAT_ID, Cfg.tgChatID);
-      Pref.putUChar (CFG_TG_CURRENT_THRESHOLD, Cfg.tgCurrentThreshold);
-
-      Pref.end();
-      backToWebRoot();
-      needRestart = true;
-    } else if (portal.form("/mqtt")) {
-      portal.copyBool("mqtt.enabled", Cfg.mqttEnabled);
-      portal.copyStr("mqtt.broker_ip", Cfg.mqttBrokerIp,
-                     sizeof(Cfg.mqttBrokerIp));
-
-      int port = (int)Cfg.mqttPort;
-      portal.copyInt("mqtt.port", port);
-      if (port < 1) port = 1;
-      if (port > 65535) port = 65535;
-      Cfg.mqttPort = (uint16_t)port;
-
-      portal.copyStr("mqtt.username", Cfg.mqttUsername,
-                     sizeof(Cfg.mqttUsername));
-      portal.copyStr("mqtt.password", Cfg.mqttPassword,
-                     sizeof(Cfg.mqttPassword));
-
-      Pref.putBool(CFG_MQQTT_ENABLED, Cfg.mqttEnabled);
-      Pref.putString(CFG_MQQTT_BROKER_IP, Cfg.mqttBrokerIp);
-      Pref.putUShort(CFG_MQQTT_PORT, Cfg.mqttPort);
-      Pref.putString(CFG_MQQTT_USERNAME, Cfg.mqttUsername);
-      Pref.putString(CFG_MQQTT_PASSWORD, Cfg.mqttPassword);
-
-      Pref.end();
-      backToWebRoot();
-      needRestart = true;
-    } else if (portal.form("/watchdog")) {
-      portal.copyBool("watchdog.enabled", Cfg.watchdogEnabled);
-
-      int timeout = (int)Cfg.watchdogTimeout;
-      portal.copyInt("watchdog.timeout", timeout);
-      if (timeout < 10) timeout = 10;     // Min 10 seconds
-      if (timeout > 120) timeout = 120;   // Max 120 seconds
-      Cfg.watchdogTimeout = (uint8_t)timeout;
-
-      Pref.putBool(CFG_WATCHDOG_ENABLED, Cfg.watchdogEnabled);
-      Pref.putUChar(CFG_WATCHDOG_TIMEOUT, Cfg.watchdogTimeout);
-
-      Pref.end();
-      backToWebRoot();
-      needRestart = true;
-    } else if (portal.form("/syslog")) {
-      portal.copyBool("syslog.enabled", Cfg.syslogEnabled);
-      portal.copyStr("syslog.server", Cfg.syslogServer,
-                     sizeof(Cfg.syslogServer));
-
-      int port = (int)Cfg.syslogPort;
-      portal.copyInt("syslog.port", port);
-      if (port < 1) port = 1;
-      if (port > 65535) port = 65535;
-      Cfg.syslogPort = (uint16_t)port;
-
-      int level = (int)Cfg.syslogLevel;
-      portal.copyInt("syslog.level", level);
-      if (level < 0) level = 0;
-      if (level > 7) level = 7;
-      Cfg.syslogLevel = (uint8_t)level;
-
-      Pref.putBool(CFG_SYSLOG_ENABLED, Cfg.syslogEnabled);
-      Pref.putString(CFG_SYSLOG_SERVER, Cfg.syslogServer);
-      Pref.putUShort(CFG_SYSLOG_PORT, Cfg.syslogPort);
-      Pref.putUChar(CFG_SYSLOG_LEVEL, Cfg.syslogLevel);
-
-      Pref.end();
-      backToWebRoot();
-      needRestart = true;
-    }
-  }
+  // Start server
+  server.begin();
+  Serial.println("[WEB] ✓ Async web server started on port 80");
+  Serial.println("[WEB]   Main page: http://<ip>/");
+  Serial.println("[WEB]   Console: http://<ip>/webserial");
 }
 
-void backToWebRoot() {
-  portal.answer(F("<meta http-equiv='refresh' content='0; url=/' />"));
+AsyncWebServer& getServer() {
+  return server;
+}
+
+void updateLiveData() {
+  if (ws.count() == 0) return; // No clients connected
+
+  JsonDocument doc;
+  EssStatus ess = CAN::getEssStatus();
+
+  doc["charge"] = ess.charge;
+  doc["health"] = ess.health;
+  doc["voltage"] = ess.voltage;
+  doc["current"] = ess.current;
+  doc["temperature"] = ess.temperature;
+  doc["canStatus"] = "OK";
+  doc["hostname"] = Cfg.hostname;
+  doc["ip"] = WiFi.localIP().toString();
+
+  String json;
+  serializeJson(doc, json);
+  ws.textAll(json);
 }
 
 } // namespace WEB
