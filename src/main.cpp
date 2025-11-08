@@ -68,8 +68,10 @@ void loop() {
     esp_task_wdt_reset();
   }
 
-  // WiFi reconnection
-  wifiMulti.run();
+  // WiFi reconnection - only in STA mode
+  if (Cfg.wifiSTA && wifiEverConnected) {
+    wifiMulti.run();
+  }
 
   // Every 5 seconds
   if (currentMillis - previousMillis >= 5000 * 1) {
@@ -149,13 +151,35 @@ bool initWiFi() {
 
   if (!wifiEverConnected) {
     Serial.println("Starting WiFi access point.");
+
+    // Fully disconnect and reset WiFi
+    WiFi.disconnect(true);
+    WiFi.softAPdisconnect(true);
+    delay(100);
+
+    // Configure AP mode
     IPAddress AP_IP(192, 168, 4, 1);
     IPAddress AP_PFX(255, 255, 255, 0);
-    WiFi.disconnect();
+
     WiFi.mode(WIFI_AP);
+    delay(100);
+
     WiFi.softAPConfig(AP_IP, AP_IP, AP_PFX);
-    WiFi.softAP(Cfg.hostname, "12345678");
-    Serial.printf("Access point SSID: '%s'\n", Cfg.hostname);
+
+    // Create AP with explicit channel and max connections
+    // Channel 1, no hidden SSID, max 4 connections
+    bool apStarted = WiFi.softAP(Cfg.hostname, "12345678", 1, false, 4);
+
+    if (apStarted) {
+      Serial.printf("✓ Access Point started successfully\n");
+      Serial.printf("  SSID: '%s'\n", Cfg.hostname);
+      Serial.printf("  Password: '12345678'\n");
+      Serial.printf("  IP Address: %s\n", WiFi.softAPIP().toString().c_str());
+      Serial.printf("  Connect to this WiFi network to configure the device\n");
+    } else {
+      Serial.println("✗ Failed to start Access Point!");
+    }
+
     return false;
   }
 
