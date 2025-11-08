@@ -142,39 +142,53 @@ void readCAN() {
 void writeCAN() {
   DataFrame chargeFrame = getChargeDataFrame();
   byte sendStatus;
+  static uint32_t lastErrorLogTime = 0;
 
   // Send 0x35E - Protocol ID
   sendStatus = can.sendMsgBuf(DF_35E.id, DF_35E.dlc, (uint8_t *)DF_35E.data);
 
   // Send 0x305 - KEEP-ALIVE (CRITICAL!)
-  logWriteDataFrame((DataFrame *)&DF_305);
+  // Note: Removed logWriteDataFrame() here to avoid WDT timeout from Serial.printf()
   sendStatus = can.sendMsgBuf(DF_305.id, DF_305.dlc, (uint8_t *)DF_305.data);
 
+  // Update counters (quick, inside critical section)
+  bool keepAliveOk = (sendStatus == CAN_OK);
+  uint32_t failures = 0;
+  uint32_t counter = 0;
+
   portENTER_CRITICAL(&keepAliveMux);
-  if (sendStatus == CAN_OK) {
+  if (keepAliveOk) {
     keepAliveCounter++;
     lastKeepAliveMillis = millis();
-    LOG_D("CAN", "Keep-alive sent successfully. Counter: %lu", keepAliveCounter);
+    counter = keepAliveCounter;
   } else {
     keepAliveFailures++;
-    Serial.printf("[CAN] ⚠️ KEEP-ALIVE SEND FAILED! Failures: %lu\n", keepAliveFailures);
-    LOG_E("CAN", "KEEP-ALIVE SEND FAILED! Failures: %lu", keepAliveFailures);
+    failures = keepAliveFailures;
   }
   portEXIT_CRITICAL(&keepAliveMux);
+
+  // Log OUTSIDE critical section, and only every 10 seconds to avoid WDT timeout
+  uint32_t now = millis();
+  if (now - lastErrorLogTime >= 10000) {
+    if (!keepAliveOk) {
+      LOG_E("CAN", "Keep-alive send failures: %lu (logged every 10s)", failures);
+    }
+
+    // Check for missed keep-alives
+    portENTER_CRITICAL(&keepAliveMux);
+    uint32_t lastMillis = lastKeepAliveMillis;
+    portEXIT_CRITICAL(&keepAliveMux);
+
+    uint32_t timeSinceLastKeepAlive = now - lastMillis;
+    if (timeSinceLastKeepAlive > 2000 && lastMillis > 0) {
+      LOG_W("CAN", "WARNING: %lu ms since last successful keep-alive!", timeSinceLastKeepAlive);
+    }
+
+    lastErrorLogTime = now;
+  }
 
   // Send 0x35C - Charge control
   can.sendMsgBuf(chargeFrame.id, chargeFrame.dlc, chargeFrame.data);
-
-  // Check for missed keep-alives (safety check)
-  portENTER_CRITICAL(&keepAliveMux);
-  uint32_t lastMillis = lastKeepAliveMillis;
-  portEXIT_CRITICAL(&keepAliveMux);
-
-  uint32_t timeSinceLastKeepAlive = millis() - lastMillis;
-  if (timeSinceLastKeepAlive > 2000) {
-    Serial.printf("[CAN] ⚠️ WARNING: %lu ms since last successful keep-alive!\n", timeSinceLastKeepAlive);
-    LOG_W("CAN", "WARNING: %lu ms since last successful keep-alive!", timeSinceLastKeepAlive);
-  }
 }
 
 void logReadDataFrame(DataFrame *f) {
