@@ -39,6 +39,34 @@ void begin() {
   WebSerial.begin(&server);
   Serial.println("[WEB] WebSerial initialized at /webserial");
 
+  // Send startup info to WebSerial when clients connect
+  WebSerial.onMessage([](const String& msg) {
+    // Echo received message
+    WebSerial.println("Received: " + msg);
+
+    // Handle commands
+    if (msg == "status" || msg == "info") {
+      WebSerial.println("========== ESS Monitor Status ==========");
+      WebSerial.println("Version: v0.1-dev");
+      WebSerial.println("Hostname: " + String(Cfg.hostname));
+      WebSerial.println("WiFi: " + (WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected"));
+      if (WiFi.status() == WL_CONNECTED) {
+        WebSerial.println("  SSID: " + WiFi.SSID());
+        WebSerial.println("  IP: " + WiFi.localIP().toString());
+        WebSerial.println("  Signal: " + String(WiFi.RSSI()) + " dBm");
+      }
+      WebSerial.println("Uptime: " + String(millis() / 1000) + " seconds");
+      WebSerial.println("Free Heap: " + String(ESP.getFreeHeap() / 1024) + " KB");
+      WebSerial.println("========================================");
+      WebSerial.println("Type 'help' for available commands");
+    } else if (msg == "help") {
+      WebSerial.println("Available commands:");
+      WebSerial.println("  status - Show system status");
+      WebSerial.println("  info   - Same as status");
+      WebSerial.println("  help   - Show this help");
+    }
+  });
+
   // Serve main page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send_P(200, "text/html", HTML_PAGE);

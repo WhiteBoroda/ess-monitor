@@ -29,14 +29,14 @@ void setup() {
   // Initialize WiFi with captive portal
   bool wifiConnected = WiFiMgr::begin();
 
-  // Initialize Logger (works with WebSerial)
+  // Initialize web server first (to setup WebSerial for logging)
+  WEB::begin();
+
+  // Initialize Logger AFTER WebSerial is ready
   Logger::begin();
 
-  // Initialize CAN bus
+  // Initialize CAN bus (logs will go to WebSerial now)
   CAN::begin(1, 1);
-
-  // Initialize web server (works in both AP and STA modes)
-  WEB::begin();
 
   // Initialize LCD display
   LCD::begin(1, 1);

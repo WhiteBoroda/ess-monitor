@@ -10,11 +10,28 @@ bool webSerialEnabled = false;
 Level currentLevel = LEVEL_DEBUG; // Default log level
 
 void begin() {
-  // WebSerial will be initialized by the web server
+  // WebSerial should be already initialized by web server
   webSerialEnabled = true;
+
+  // Send welcome message to both Serial and WebSerial
+  const char* welcomeMsg = R"(
+========================================
+   ESS Monitor - Logger Initialized
+========================================
+Version: v0.1-dev
+Log Level: DEBUG
+WebSerial Console: Active
+----------------------------------------
+All system logs will appear here.
+Type 'status' for system information.
+========================================
+)";
+
+  Serial.println(welcomeMsg);
+  WebSerial.println(welcomeMsg);
+
   Serial.println("[LOGGER] Logger initialized with WebSerial support");
   Serial.printf("[LOGGER] Log level: %d (DEBUG)\n", currentLevel);
-  Serial.println("[LOGGER] View logs at http://<ip>/webserial");
 }
 
 void setEnabled(bool en) {

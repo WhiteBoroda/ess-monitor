@@ -53,16 +53,25 @@ void task(void *pvParameters) {
 };
 
 bool initCAN() {
+  LOG_I("CAN", "Initializing MCP2515 CAN controller...");
+
   if (can.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
     can.setMode(MCP_NORMAL);
     attachInterrupt(INT_PIN, readCAN, LOW);
     pinMode(INT_PIN, INPUT);
-    Serial.println(F("[CAN] Initializing MCP2515... OK."));
-    LOG_I("CAN", "MCP2515 initialized successfully at 500KBPS");
+    LOG_I("CAN", "✓ MCP2515 initialized successfully at 500KBPS");
+    LOG_I("CAN", "CAN bus is active and ready");
     return true;
   }
-  Serial.println(F("[CAN] Initializing MCP2515... ERROR!"));
-  LOG_E("CAN", "Failed to initialize MCP2515!");
+
+  LOG_E("CAN", "✗ Failed to initialize MCP2515 CAN controller");
+  LOG_W("CAN", "MCP2515 module not detected or not connected");
+  LOG_W("CAN", "Please check:");
+  LOG_W("CAN", "  - MCP2515 module is connected to SPI pins");
+  LOG_W("CAN", "  - CS pin is correct (GPIO %d)", CS_PIN);
+  LOG_W("CAN", "  - INT pin is correct (GPIO %d)", INT_PIN);
+  LOG_W("CAN", "Device will continue without CAN functionality");
+  LOG_W("CAN", "Battery data will not be available");
   return false;
 }
 
