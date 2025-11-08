@@ -21,7 +21,7 @@ bool begin() {
   WiFi.setHostname(Cfg.hostname);
 
   // Create WiFi Manager
-  ESPAsyncWiFiManager wifiManager(&configServer, &dnsServer);
+  AsyncWiFiManager wifiManager(&configServer, &dnsServer);
 
   // Set timeout for config portal (3 minutes)
   wifiManager.setConfigPortalTimeout(180);
