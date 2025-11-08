@@ -14,9 +14,15 @@ bool enabled = false;
 Level currentLevel = LEVEL_INFO; // Default log level
 
 // Mutex for thread-safe syslog access (WiFiUDP is not thread-safe)
-static portMUX_TYPE syslogMux = portMUX_INITIALIZER_UNLOCKED;
+// Using FreeRTOS mutex instead of portMUX_TYPE to avoid blocking WiFi interrupts
+static SemaphoreHandle_t syslogMutex = NULL;
 
 void begin() {
+  // Create mutex for thread-safe syslog access
+  if (syslogMutex == NULL) {
+    syslogMutex = xSemaphoreCreateMutex();
+  }
+
   // Set log level from config
   currentLevel = (Level)Cfg.syslogLevel;
 
@@ -72,14 +78,16 @@ static void logFormatted(Level level, const char* tag, const char* message) {
 
   // Send to syslog if enabled and level is <= configured level
   // Lower number = higher priority (EMERG=0, DEBUG=7)
-  if (isEnabled() && WiFi.status() == WL_CONNECTED && level <= currentLevel) {
+  if (isEnabled() && WiFi.status() == WL_CONNECTED && level <= currentLevel && syslogMutex != NULL) {
     char syslogMsg[384];
     snprintf(syslogMsg, sizeof(syslogMsg), "[%s] %s", tag, message);
 
-    // Thread-safe syslog access (WiFiUDP is not thread-safe)
-    portENTER_CRITICAL(&syslogMux);
-    syslog.log((uint16_t)level, syslogMsg);
-    portEXIT_CRITICAL(&syslogMux);
+    // Thread-safe syslog access using FreeRTOS mutex (WiFiUDP is not thread-safe)
+    // Using mutex instead of spinlock to avoid blocking WiFi interrupts
+    if (xSemaphoreTake(syslogMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+      syslog.log((uint16_t)level, syslogMsg);
+      xSemaphoreGive(syslogMutex);
+    }
   }
 }
 
