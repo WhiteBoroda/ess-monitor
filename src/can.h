@@ -33,6 +33,7 @@ uint32_t getKeepAliveCounter();
 uint32_t getKeepAliveFailures();
 uint32_t getTimeSinceLastKeepAlive();
 EssStatus getEssStatus();
+bool isInitialized();
 
 } // namespace CAN
 

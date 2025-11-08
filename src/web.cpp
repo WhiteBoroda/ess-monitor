@@ -258,7 +258,7 @@ void begin() {
     doc["voltage"] = ess.voltage;
     doc["current"] = ess.current;
     doc["temperature"] = ess.temperature;
-    doc["canStatus"] = "OK";
+    doc["canStatus"] = CAN::isInitialized() ? "OK" : "ERROR";
     doc["hostname"] = Cfg.hostname;
     doc["ip"] = WiFi.localIP().toString();
     doc["ssid"] = WiFi.SSID();
@@ -293,7 +293,7 @@ void updateLiveData() {
   doc["voltage"] = ess.voltage;
   doc["current"] = ess.current;
   doc["temperature"] = ess.temperature;
-  doc["canStatus"] = "OK";
+  doc["canStatus"] = CAN::isInitialized() ? "OK" : "ERROR";
   doc["hostname"] = Cfg.hostname;
   doc["ip"] = WiFi.localIP().toString();
   doc["ssid"] = WiFi.SSID();

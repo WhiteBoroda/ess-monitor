@@ -21,6 +21,9 @@ static uint32_t keepAliveCounter = 0;
 static uint32_t keepAliveFailures = 0;
 static uint32_t lastKeepAliveMillis = 0;
 
+// CAN initialization status
+static bool canInitialized = false;
+
 void begin(uint8_t core, uint8_t priority);
 void task(void *pvParameters);
 void loop();
@@ -59,11 +62,13 @@ bool initCAN() {
     can.setMode(MCP_NORMAL);
     attachInterrupt(INT_PIN, readCAN, LOW);
     pinMode(INT_PIN, INPUT);
+    canInitialized = true;
     LOG_I("CAN", "✓ MCP2515 initialized successfully at 500KBPS");
     LOG_I("CAN", "CAN bus is active and ready");
     return true;
   }
 
+  canInitialized = false;
   LOG_E("CAN", "✗ Failed to initialize MCP2515 CAN controller");
   LOG_W("CAN", "MCP2515 module not detected or not connected");
   LOG_W("CAN", "Please check:");
@@ -280,6 +285,10 @@ EssStatus getEssStatus() {
   copy.bmsError = Ess.bmsError;
   portEXIT_CRITICAL(&stateMux);
   return copy;
+}
+
+bool isInitialized() {
+  return canInitialized;
 }
 
 } // namespace CAN
