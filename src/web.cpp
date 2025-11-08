@@ -39,34 +39,13 @@ void begin() {
   WebSerial.begin(&server);
   Serial.println("[WEB] WebSerial initialized at /webserial");
 
-  // Send welcome message when client connects
-  WebSerial.onConnect([]() {
-    WebSerial.println("\n========================================");
-    WebSerial.println("   ESS Monitor - WebSerial Console");
-    WebSerial.println("========================================");
-    WebSerial.println("Version: " + String(VERSION));
-    WebSerial.println("Hostname: " + String(Cfg.hostname));
-    WebSerial.println(String("WiFi: ") + (WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected"));
-    if (WiFi.status() == WL_CONNECTED) {
-      WebSerial.println("  SSID: " + WiFi.SSID());
-      WebSerial.println("  IP: " + WiFi.localIP().toString());
-      WebSerial.println("  Signal: " + String(WiFi.RSSI()) + " dBm");
-    }
-    WebSerial.println("Uptime: " + String(millis() / 1000) + " seconds");
-    WebSerial.println("Free Heap: " + String(ESP.getFreeHeap() / 1024) + " KB");
-    WebSerial.println("========================================");
-    WebSerial.println("Console is ready. Type 'help' for commands.");
-    WebSerial.println("All new system logs will appear here.\n");
-  });
-
   // Handle commands from WebSerial
   WebSerial.onMessage([](const String& msg) {
-    // Echo received message
-    WebSerial.println("Received: " + msg);
+    if (msg.isEmpty()) return;
 
     // Handle commands
     if (msg == "status" || msg == "info") {
-      WebSerial.println("========== ESS Monitor Status ==========");
+      WebSerial.println("\n========== ESS Monitor Status ==========");
       WebSerial.println("Version: " + String(VERSION));
       WebSerial.println("Hostname: " + String(Cfg.hostname));
       WebSerial.println(String("WiFi: ") + (WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected"));
@@ -75,15 +54,28 @@ void begin() {
         WebSerial.println("  IP: " + WiFi.localIP().toString());
         WebSerial.println("  Signal: " + String(WiFi.RSSI()) + " dBm");
       }
+      WebSerial.println(String("CAN: ") + (CAN::isInitialized() ? "OK" : "ERROR - Module not detected"));
       WebSerial.println("Uptime: " + String(millis() / 1000) + " seconds");
       WebSerial.println("Free Heap: " + String(ESP.getFreeHeap() / 1024) + " KB");
-      WebSerial.println("========================================");
-      WebSerial.println("Type 'help' for available commands");
+      WebSerial.println("========================================\n");
     } else if (msg == "help") {
+      WebSerial.println("\n========================================");
+      WebSerial.println("   ESS Monitor - WebSerial Console");
+      WebSerial.println("========================================");
+      WebSerial.println("Version: " + String(VERSION));
+      WebSerial.println("Hostname: " + String(Cfg.hostname));
+      WebSerial.println("----------------------------------------");
       WebSerial.println("Available commands:");
-      WebSerial.println("  status - Show system status");
+      WebSerial.println("  status - Show detailed system status");
       WebSerial.println("  info   - Same as status");
-      WebSerial.println("  help   - Show this help");
+      WebSerial.println("  help   - Show this help message");
+      WebSerial.println("----------------------------------------");
+      WebSerial.println("All system logs appear here in real-time.");
+      WebSerial.println("Type 'status' to see current system state.");
+      WebSerial.println("========================================\n");
+    } else {
+      WebSerial.println("Unknown command: " + msg);
+      WebSerial.println("Type 'help' for available commands\n");
     }
   });
 
