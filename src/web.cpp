@@ -79,9 +79,11 @@ void begin() {
     }
   });
 
-  // Serve main page (PROGMEM data requires send_P despite deprecation warning)
+  // Serve main page (use chunked response for large PROGMEM data to avoid memory issues)
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send_P(200, "text/html", HTML_PAGE);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", HTML_PAGE);
+    response->addHeader("Cache-Control", "no-cache");
+    request->send(response);
   });
 
   // API: Get all settings
