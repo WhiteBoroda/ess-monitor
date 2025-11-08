@@ -13,6 +13,9 @@ Syslog syslog(udpClient, SYSLOG_PROTO_IETF);
 bool enabled = false;
 Level currentLevel = LEVEL_INFO; // Default log level
 
+// Mutex for thread-safe syslog access (WiFiUDP is not thread-safe)
+static portMUX_TYPE syslogMux = portMUX_INITIALIZER_UNLOCKED;
+
 void begin() {
   // Set log level from config
   currentLevel = (Level)Cfg.syslogLevel;
@@ -62,6 +65,24 @@ Level getLevel() {
   return currentLevel;
 }
 
+// Internal function for already-formatted messages (used by wrapper functions)
+static void logFormatted(Level level, const char* tag, const char* message) {
+  // Always write to Serial
+  Serial.printf("[%s] %s\n", tag, message);
+
+  // Send to syslog if enabled and level is <= configured level
+  // Lower number = higher priority (EMERG=0, DEBUG=7)
+  if (isEnabled() && WiFi.status() == WL_CONNECTED && level <= currentLevel) {
+    char syslogMsg[384];
+    snprintf(syslogMsg, sizeof(syslogMsg), "[%s] %s", tag, message);
+
+    // Thread-safe syslog access (WiFiUDP is not thread-safe)
+    portENTER_CRITICAL(&syslogMux);
+    syslog.log((uint16_t)level, syslogMsg);
+    portEXIT_CRITICAL(&syslogMux);
+  }
+}
+
 void log(Level level, const char* tag, const char* format, ...) {
   char buffer[256];
   va_list args;
@@ -71,16 +92,8 @@ void log(Level level, const char* tag, const char* format, ...) {
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
 
-  // Always write to Serial
-  Serial.printf("[%s] %s\n", tag, buffer);
-
-  // Send to syslog if enabled and level is <= configured level
-  // Lower number = higher priority (EMERG=0, DEBUG=7)
-  if (isEnabled() && WiFi.status() == WL_CONNECTED && level <= currentLevel) {
-    char syslogMsg[384];
-    snprintf(syslogMsg, sizeof(syslogMsg), "[%s] %s", tag, buffer);
-    syslog.log((uint16_t)level, syslogMsg);
-  }
+  // Use internal function to avoid double formatting
+  logFormatted(level, tag, buffer);
 }
 
 void emergency(const char* tag, const char* format, ...) {
@@ -89,7 +102,7 @@ void emergency(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LEVEL_EMERG, tag, buffer);
+  logFormatted(LEVEL_EMERG, tag, buffer);
 }
 
 void alert(const char* tag, const char* format, ...) {
@@ -98,7 +111,7 @@ void alert(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LEVEL_ALERT, tag, buffer);
+  logFormatted(LEVEL_ALERT, tag, buffer);
 }
 
 void critical(const char* tag, const char* format, ...) {
@@ -107,7 +120,7 @@ void critical(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LEVEL_CRIT, tag, buffer);
+  logFormatted(LEVEL_CRIT, tag, buffer);
 }
 
 void error(const char* tag, const char* format, ...) {
@@ -116,7 +129,7 @@ void error(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LEVEL_ERR, tag, buffer);
+  logFormatted(LEVEL_ERR, tag, buffer);
 }
 
 void warning(const char* tag, const char* format, ...) {
@@ -125,7 +138,7 @@ void warning(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LEVEL_WARNING, tag, buffer);
+  logFormatted(LEVEL_WARNING, tag, buffer);
 }
 
 void notice(const char* tag, const char* format, ...) {
@@ -134,7 +147,7 @@ void notice(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LEVEL_NOTICE, tag, buffer);
+  logFormatted(LEVEL_NOTICE, tag, buffer);
 }
 
 void info(const char* tag, const char* format, ...) {
@@ -143,7 +156,7 @@ void info(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LEVEL_INFO, tag, buffer);
+  logFormatted(LEVEL_INFO, tag, buffer);
 }
 
 void debug(const char* tag, const char* format, ...) {
@@ -152,7 +165,7 @@ void debug(const char* tag, const char* format, ...) {
   va_start(args, format);
   vsnprintf(buffer, sizeof(buffer), format, args);
   va_end(args);
-  log(LEVEL_DEBUG, tag, buffer);
+  logFormatted(LEVEL_DEBUG, tag, buffer);
 }
 
 } // namespace Logger

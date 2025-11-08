@@ -55,6 +55,11 @@ typedef struct Config {
   bool watchdogEnabled = true;    // Watchdog enabled by default to prevent device freezing
   uint8_t watchdogTimeout = 60;   // Watchdog timeout in seconds (default: 60s)
 
+  bool syslogEnabled = false;     // Syslog disabled by default
+  char syslogServer[64] = "";     // Syslog server IP or hostname
+  uint16_t syslogPort = 514;      // Syslog port (default: 514)
+  uint8_t syslogLevel = 6;        // Syslog level (default: INFO=6)
+
 } Config;
 
 typedef struct EssStatus {
