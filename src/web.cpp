@@ -41,9 +41,6 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 void begin() {
   Serial.println("[WEB] Initializing async web server...");
 
-  // Limit WebSocket clients to save memory
-  ws.setCloseClientOnQueueFull(true);
-
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
 
@@ -105,15 +102,15 @@ void begin() {
       return;
     }
 
-    // Use send_P to send PROGMEM data directly without RAM buffering
-    request->send_P(200, "text/html", HTML_PAGE);
+    // Send PROGMEM data directly
+    request->send(200, "text/html", HTML_PAGE);
     Serial.printf("[WEB] Main page sent, Free Heap after: %d KB\n", ESP.getFreeHeap() / 1024);
   });
 
   // OTA Update page
   server.on("/ota_update", HTTP_GET, [](AsyncWebServerRequest *request) {
     Serial.printf("[WEB] OTA page requested, Free Heap: %d KB\n", ESP.getFreeHeap() / 1024);
-    request->send_P(200, "text/html", OTA_HTML);
+    request->send(200, "text/html", OTA_HTML);
   });
 
   // OTA Update handler
