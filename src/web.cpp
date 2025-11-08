@@ -6,6 +6,7 @@
 #include <ESPAsyncWebServer.h>
 #include <WebSerialLite.h>
 #include <Preferences.h>
+#include <WiFi.h>
 
 extern Config Cfg;
 extern Preferences Pref;
@@ -265,7 +266,7 @@ void begin() {
 
   // API endpoint for live data (JSON)
   server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *request) {
-    JsonDocument doc;
+    StaticJsonDocument<512> doc;
     EssStatus ess = CAN::getEssStatus();
 
     doc["charge"] = ess.charge;
@@ -296,7 +297,7 @@ AsyncWebServer& getServer() {
 void updateLiveData() {
   if (ws.count() == 0) return; // No clients connected
 
-  JsonDocument doc;
+  StaticJsonDocument<512> doc;
   EssStatus ess = CAN::getEssStatus();
 
   doc["charge"] = ess.charge;
