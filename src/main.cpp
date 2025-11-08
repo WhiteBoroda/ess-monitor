@@ -1,6 +1,7 @@
 #include "can.h"
 #include "hass.h"
 #include "lcd.h"
+#include "logger.h"
 #include "tg.h"
 #include "types.h"
 #include "web.h"
