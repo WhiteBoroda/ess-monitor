@@ -141,10 +141,33 @@ void logBatteryState() {
   // Get thread-safe copy of battery status
   EssStatus ess = CAN::getEssStatus();
 
-  // Use Logger to output to both Serial and WebSerial
-  LOG_D("MAIN", "Load %.1f | RC %.1f/%.1f | SOC %d%% | SOH %d%% | T %.1f°C | V %.2f/%.2f",
-        ess.current, ess.ratedChargeCurrent, ess.ratedDischargeCurrent,
-        ess.charge, ess.health, ess.temperature, ess.voltage,
-        ess.ratedVoltage);
+  // Store previous values
+  static int prevCharge = -1;
+  static int prevHealth = -1;
+  static float prevCurrent = -999.0;
+  static float prevVoltage = -1.0;
+  static float prevTemperature = -999.0;
+
+  // Log only if significant changes occurred (to reduce log spam)
+  bool changed = (ess.charge != prevCharge) ||
+                 (ess.health != prevHealth) ||
+                 (abs(ess.current - prevCurrent) > 0.5) ||
+                 (abs(ess.voltage - prevVoltage) > 0.1) ||
+                 (abs(ess.temperature - prevTemperature) > 0.5);
+
+  if (changed) {
+    // Use Logger to output to both Serial and WebSerial
+    LOG_D("MAIN", "Load %.1f | RC %.1f/%.1f | SOC %d%% | SOH %d%% | T %.1f°C | V %.2f/%.2f",
+          ess.current, ess.ratedChargeCurrent, ess.ratedDischargeCurrent,
+          ess.charge, ess.health, ess.temperature, ess.voltage,
+          ess.ratedVoltage);
+
+    // Update previous values
+    prevCharge = ess.charge;
+    prevHealth = ess.health;
+    prevCurrent = ess.current;
+    prevVoltage = ess.voltage;
+    prevTemperature = ess.temperature;
+  }
 #endif
 }
