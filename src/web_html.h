@@ -135,9 +135,9 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
       width: 40%;
     }
 
-    .status-ok { color: #4CAF50; }
-    .status-warning { color: #FF9800; }
-    .status-error { color: #F44336; }
+    .value.status-ok { color: #4CAF50 !important; }
+    .value.status-warning { color: #FF9800 !important; }
+    .value.status-error { color: #F44336 !important; }
 
     .connection-status {
       position: fixed;
