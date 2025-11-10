@@ -95,8 +95,8 @@ void loop() {
 
   readCAN();
 
-  // Every 1 second
-  if (currentMillis - previousMillis >= 1000 * 1) {
+  // Send keep-alive at configured interval (default: 3 seconds)
+  if (currentMillis - previousMillis >= Cfg.canKeepAliveInterval) {
     previousMillis = currentMillis;
     writeCAN();
   }

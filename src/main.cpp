@@ -133,6 +133,8 @@ void initConfig() {
   Cfg.syslogPort = Pref.getUShort(CFG_SYSLOG_PORT, Cfg.syslogPort);
   Cfg.syslogLevel = Pref.getUChar(CFG_SYSLOG_LEVEL, Cfg.syslogLevel);
 
+  Cfg.canKeepAliveInterval = Pref.getUShort(CFG_CAN_KEEPALIVE_INTERVAL, Cfg.canKeepAliveInterval);
+
   Pref.end();
 }
 

@@ -28,6 +28,7 @@
 #define CFG_SYSLOG_SERVER "syslog.server"
 #define CFG_SYSLOG_PORT "syslog.port"
 #define CFG_SYSLOG_LEVEL "syslog.level"
+#define CFG_CAN_KEEPALIVE_INTERVAL "can.keepalive_interval"
 
 extern bool needRestart;
 
@@ -59,6 +60,8 @@ typedef struct Config {
   char syslogServer[64] = "";     // Syslog server IP or hostname
   uint16_t syslogPort = 514;      // Syslog port (default: 514)
   uint8_t syslogLevel = 6;        // Syslog level (default: INFO=6)
+
+  uint16_t canKeepAliveInterval = 3000;  // CAN keep-alive interval in milliseconds (default: 3000ms = 3 seconds)
 
 } Config;
 

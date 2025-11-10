@@ -200,6 +200,7 @@ void begin() {
     doc["mqttBroker"] = Cfg.mqttBrokerIp;
     doc["mqttPort"] = Cfg.mqttPort;
     doc["mqttUser"] = Cfg.mqttUsername;
+    doc["canKeepAlive"] = Cfg.canKeepAliveInterval;
     doc["wdEnabled"] = Cfg.watchdogEnabled;
     doc["wdTimeout"] = Cfg.watchdogTimeout;
 
@@ -401,6 +402,12 @@ void begin() {
       if (doc["mqtt"]["mqttPass"].is<const char*>()) {
         strlcpy(Cfg.mqttPassword, doc["mqtt"]["mqttPass"].as<const char*>(), sizeof(Cfg.mqttPassword));
         Pref.putString(CFG_MQQTT_PASSWORD, Cfg.mqttPassword);
+      }
+
+      // CAN settings
+      if (doc["can"]["canKeepAlive"].is<int>()) {
+        Cfg.canKeepAliveInterval = doc["can"]["canKeepAlive"].as<uint16_t>();
+        Pref.putUShort(CFG_CAN_KEEPALIVE_INTERVAL, Cfg.canKeepAliveInterval);
       }
 
       // Watchdog settings

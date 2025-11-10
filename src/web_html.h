@@ -200,6 +200,7 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
       <button onclick="showTab('wifi')">WiFi</button>
       <button onclick="showTab('telegram')">Telegram</button>
       <button onclick="showTab('mqtt')">MQTT</button>
+      <button onclick="showTab('can')">CAN</button>
       <button onclick="showTab('watchdog')">Watchdog</button>
       <button onclick="showTab('system')">System</button>
       <button onclick="window.open('/webserial', '_blank')">Console</button>
@@ -318,6 +319,19 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
             <input type="password" id="mqttPass" maxlength="64" oninput="markChanged()">
             <button type="button" onclick="togglePassword('mqttPass')" style="position: absolute; right: 5px; top: 5px; padding: 5px 10px; background: #333; border: 1px solid #555; color: #e0e0e0; cursor: pointer; border-radius: 3px;">👁</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAN Settings Tab -->
+    <div id="can" class="tab-content">
+      <div class="card">
+        <h2>CAN Bus Settings</h2>
+        <p style="margin-bottom:20px; color: #888;">Configure CAN bus keep-alive interval.</p>
+        <div class="form-group">
+          <label>Keep-Alive Interval (milliseconds):</label>
+          <input type="number" id="canKeepAlive" min="1000" max="10000" step="1000" value="3000" oninput="markChanged()">
+          <small>How often to send keep-alive packets to battery (1000-10000ms). Default: 3000ms (3 seconds)</small>
         </div>
       </div>
     </div>
@@ -477,6 +491,9 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
           mqttUser: document.getElementById('mqttUser').value,
           mqttPass: document.getElementById('mqttPass').value
         },
+        can: {
+          canKeepAlive: parseInt(document.getElementById('canKeepAlive').value)
+        },
         watchdog: {
           wdEnabled: document.getElementById('wdEnabled').checked,
           wdTimeout: parseInt(document.getElementById('wdTimeout').value)
@@ -521,6 +538,9 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
           if (data.mqttBroker !== undefined) document.getElementById('mqttBroker').value = data.mqttBroker;
           if (data.mqttPort !== undefined) document.getElementById('mqttPort').value = data.mqttPort;
           if (data.mqttUser !== undefined) document.getElementById('mqttUser').value = data.mqttUser;
+
+          // CAN
+          if (data.canKeepAlive !== undefined) document.getElementById('canKeepAlive').value = data.canKeepAlive;
 
           // Watchdog
           if (data.wdEnabled !== undefined) document.getElementById('wdEnabled').checked = data.wdEnabled;
