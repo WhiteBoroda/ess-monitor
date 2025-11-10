@@ -432,6 +432,13 @@ void begin() {
     needRestart = true;
   });
 
+  // API: Battery Power On (Experimental)
+  server.on("/api/battery/power-on", HTTP_POST, [](AsyncWebServerRequest *request) {
+    LOG_I("WEB", "Battery power-on requested via web interface");
+    CAN::powerOnBattery();
+    request->send(200, "application/json", "{\"success\":true,\"message\":\"Battery power-on sequence initiated. Check console for details.\"}");
+  });
+
   // API: Live data
   server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *request) {
     JsonDocument doc;

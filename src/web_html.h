@@ -234,6 +234,16 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
           <div class="value" id="canStatus">--</div>
         </div>
       </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <h3>Battery Control</h3>
+        <p style="color: #888; margin-bottom: 15px;">EXPERIMENTAL: Try to wake up battery via CAN bus</p>
+        <button onclick="powerOnBattery()" class="btn-primary" style="width: 100%;">Power On Battery</button>
+        <small style="display: block; margin-top: 10px; color: #888;">
+          This will send a sequence of CAN packets to attempt battery wake-up.<br>
+          May not work for all battery models. Check console for details.
+        </small>
+      </div>
     </div>
 
     <!-- WiFi Settings Tab -->
@@ -602,6 +612,21 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
         fetch('/api/reboot', {method: 'POST'})
           .then(() => alert('Device is rebooting...'))
           .catch(err => alert('Reboot failed: ' + err));
+      }
+    }
+
+    function powerOnBattery() {
+      if (confirm('Attempt to power on battery via CAN?\n\nThis is EXPERIMENTAL and may not work for all battery models.\n\nThe device will send:\n- One Battery wake-up packet (0x379)\n- Burst of keep-alive packets (0x305)\n- Protocol ID (0x35E)\n- Charge control (0x35C)\n\nCheck console (WebSerial) for detailed logs.')) {
+        fetch('/api/battery/power-on', {method: 'POST'})
+          .then(r => r.json())
+          .then(data => {
+            if (data.success) {
+              alert('Battery power-on sequence initiated!\n\nCheck console for details.\nWait 30 seconds and check battery status.');
+            } else {
+              alert('Failed: ' + (data.message || 'Unknown error'));
+            }
+          })
+          .catch(err => alert('Request failed: ' + err));
       }
     }
 

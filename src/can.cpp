@@ -314,4 +314,70 @@ bool isInitialized() {
   return canInitialized;
 }
 
+void powerOnBattery() {
+  if (!canInitialized) {
+    LOG_E("CAN", "Cannot power on battery: CAN not initialized");
+    return;
+  }
+
+  LOG_I("CAN", "========================================");
+  LOG_I("CAN", "ATTEMPTING TO POWER ON BATTERY VIA CAN");
+  LOG_I("CAN", "========================================");
+  LOG_W("CAN", "EXPERIMENTAL FEATURE - May not work for all battery models");
+  LOG_I("CAN", "Battery model: LG ESS/RESU (Pylontech protocol)");
+
+  byte sendStatus;
+
+  // Strategy 1: Send "One Battery" packet (Luxpower specific)
+  LOG_I("CAN", "[1/4] Sending One Battery wake-up packet (0x379)...");
+  sendStatus = can.sendMsgBuf(DF_379.id, DF_379.dlc, (uint8_t *)DF_379.data);
+  if (sendStatus == CAN_OK) {
+    LOG_I("CAN", "  -> 0x379 sent successfully");
+  } else {
+    LOG_E("CAN", "  -> 0x379 send FAILED!");
+  }
+  delay(100);
+
+  // Strategy 2: Send burst of keep-alive packets
+  LOG_I("CAN", "[2/4] Sending burst of keep-alive packets (0x305)...");
+  for (int i = 0; i < 10; i++) {
+    sendStatus = can.sendMsgBuf(DF_305.id, DF_305.dlc, (uint8_t *)DF_305.data);
+    if (sendStatus == CAN_OK) {
+      LOG_I("CAN", "  -> Keep-alive %d/10 sent", i + 1);
+    } else {
+      LOG_E("CAN", "  -> Keep-alive %d/10 FAILED!", i + 1);
+    }
+    delay(50);
+  }
+
+  // Strategy 3: Send protocol ID
+  LOG_I("CAN", "[3/4] Sending Protocol ID (0x35E)...");
+  sendStatus = can.sendMsgBuf(DF_35E.id, DF_35E.dlc, (uint8_t *)DF_35E.data);
+  if (sendStatus == CAN_OK) {
+    LOG_I("CAN", "  -> 0x35E sent successfully");
+  } else {
+    LOG_E("CAN", "  -> 0x35E send FAILED!");
+  }
+  delay(100);
+
+  // Strategy 4: Send charge control with charge/discharge enabled
+  LOG_I("CAN", "[4/4] Sending Charge Control (0x35C)...");
+  DataFrame chargeFrame = getChargeDataFrame();
+  sendStatus = can.sendMsgBuf(chargeFrame.id, chargeFrame.dlc, chargeFrame.data);
+  if (sendStatus == CAN_OK) {
+    LOG_I("CAN", "  -> 0x35C sent successfully");
+  } else {
+    LOG_E("CAN", "  -> 0x35C send FAILED!");
+  }
+
+  LOG_I("CAN", "========================================");
+  LOG_I("CAN", "BATTERY POWER-ON SEQUENCE COMPLETED");
+  LOG_I("CAN", "========================================");
+  LOG_W("CAN", "If battery did not wake up:");
+  LOG_W("CAN", "1. Check physical AUX Power Switch and Circuit Breaker");
+  LOG_W("CAN", "2. Wait 30 seconds and check battery status");
+  LOG_W("CAN", "3. May require physical intervention (see BATTERY_RESTART_GUIDE.md)");
+  LOG_I("CAN", "Regular keep-alive packets will continue every %d seconds", Cfg.canKeepAliveInterval / 1000);
+}
+
 } // namespace CAN

@@ -34,6 +34,7 @@ uint32_t getKeepAliveFailures();
 uint32_t getTimeSinceLastKeepAlive();
 EssStatus getEssStatus();
 bool isInitialized();
+void powerOnBattery(); // Experimental: Try to wake up battery via CAN
 
 } // namespace CAN
 
