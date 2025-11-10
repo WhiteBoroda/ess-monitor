@@ -10,6 +10,7 @@
 
 extern Config Cfg;
 extern volatile EssStatus Ess;
+extern RuntimeStatus Runtime;
 
 namespace LCD {
 
@@ -100,14 +101,14 @@ void draw() {
     lcd->setCursor(90, 50);
     lcd->print(ess.bmsWarning);
   } else {
-    // CRITICAL FIX: WiFi.localIP() can block for 10+ seconds and cause WDT timeout
-    // Display hostname instead to avoid blocking WiFi calls from LCD task
-    if (WiFi.status() == WL_CONNECTED) {
-      lcd->drawStr(0, 50, "wifi:");
-      lcd->drawStr(30, 50, Cfg.hostname);
+    // CRITICAL FIX: Use cached WiFi status from Core 0 (main loop)
+    // WiFi.status() is not thread-safe when called from Core 1 (LCD task)
+    if (Runtime.wifiConnected) {
+      lcd->drawStr(0, 50, "IP:");
+      lcd->drawStr(18, 50, Runtime.cachedIP);
     } else {
-      lcd->drawStr(0, 50, "ap:");
-      lcd->drawStr(30, 50, Cfg.hostname);
+      lcd->drawStr(0, 50, "AP:");
+      lcd->drawStr(18, 50, Cfg.hostname);
     }
   }
 
