@@ -100,10 +100,11 @@ void draw() {
     lcd->setCursor(90, 50);
     lcd->print(ess.bmsWarning);
   } else {
-    // Check real WiFi connection status, not config setting
+    // CRITICAL FIX: WiFi.localIP() can block for 10+ seconds and cause WDT timeout
+    // Display hostname instead to avoid blocking WiFi calls from LCD task
     if (WiFi.status() == WL_CONNECTED) {
-      lcd->setCursor(0, 50);
-      lcd->print(WiFi.localIP());
+      lcd->drawStr(0, 50, "wifi:");
+      lcd->drawStr(30, 50, Cfg.hostname);
     } else {
       lcd->drawStr(0, 50, "ap:");
       lcd->drawStr(30, 50, Cfg.hostname);

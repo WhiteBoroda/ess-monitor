@@ -472,9 +472,20 @@ void updateLiveData() {
   doc["temperature"] = ess.temperature;
   doc["canStatus"] = CAN::isInitialized() ? "OK" : "ERROR";
   doc["hostname"] = Cfg.hostname;
-  doc["ip"] = WiFi.localIP().toString();
-  doc["ssid"] = WiFi.SSID();
-  doc["rssi"] = WiFi.RSSI();
+
+  // CRITICAL FIX: Check WiFi status BEFORE calling blocking WiFi functions
+  // WiFi.localIP(), WiFi.SSID(), WiFi.RSSI() can block for 10+ seconds if WiFi is disconnected
+  // This causes watchdog timeout and device reboot
+  if (WiFi.status() == WL_CONNECTED) {
+    doc["ip"] = WiFi.localIP().toString();
+    doc["ssid"] = WiFi.SSID();
+    doc["rssi"] = WiFi.RSSI();
+  } else {
+    doc["ip"] = "0.0.0.0";
+    doc["ssid"] = "Not connected";
+    doc["rssi"] = 0;
+  }
+
   doc["version"] = VERSION;
   doc["uptime"] = String(millis() / 1000) + "s";
   doc["freeHeap"] = ESP.getFreeHeap();

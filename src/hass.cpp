@@ -141,6 +141,11 @@ void task(void *pvParameters) {
     mqtt.loop();
     vTaskDelay(200 / portTICK_PERIOD_MS);
 
+    // CRITICAL FIX: Reset watchdog during long initialization (20 seconds total)
+    if (Cfg.watchdogEnabled) {
+      esp_task_wdt_reset();
+    }
+
     if (i % 20 == 0) {
       Serial.printf("[HASS] Discovery progress: %d/100 loops... (connected: %s)\n",
                     i, mqtt.isConnected() ? "YES" : "NO");
