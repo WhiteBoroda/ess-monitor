@@ -7,8 +7,10 @@
 #include <freertos/task.h>
 #include <mcp_can.h>
 #include <stdint.h>
+#include <esp_task_wdt.h>
 
 extern volatile EssStatus Ess;
+extern Config Cfg;
 
 namespace CAN {
 
@@ -47,6 +49,12 @@ void task(void *pvParameters) {
   if (initCAN()) {
     while (1) {
       loop();
+
+      // Reset watchdog timer to prevent device reboot
+      if (Cfg.watchdogEnabled) {
+        esp_task_wdt_reset();
+      }
+
       vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay to prevent WDT
     }
   }
@@ -60,7 +68,8 @@ bool initCAN() {
 
   if (can.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
     can.setMode(MCP_NORMAL);
-    attachInterrupt(INT_PIN, readCAN, LOW);
+    // Use polling instead of interrupt to prevent CPU lockup
+    // readCAN() is called from loop() every 10ms which is sufficient
     pinMode(INT_PIN, INPUT);
     canInitialized = true;
     LOG_I("CAN", "✓ MCP2515 initialized successfully at 500KBPS");
