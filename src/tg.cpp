@@ -174,6 +174,9 @@ void onMessage(FB_msg &msg) {
       canMsg += "Можливо проблема з CAN шиною або MCP2515.\n";
     }
 
+    // DEBUG: Log the actual message being sent
+    LOG_D("TG", "Sending message to Telegram: %s", canMsg.c_str());
+
     bot.sendMessage(canMsg, msg.chatID);
     LOG_D("TG", "Sent /canstatus response to chat %s", msg.chatID.c_str());
   }
