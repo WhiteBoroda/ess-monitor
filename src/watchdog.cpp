@@ -51,10 +51,16 @@ void task(void *pvParameters) {
   esp_task_wdt_add(NULL);
   Serial.println("[WATCHDOG] ✓ Hardware Watchdog enabled and monitoring started");
 
-  // Initialize heartbeat timestamp
+  // Wait 10 seconds before starting monitoring to allow setup() to complete
+  Serial.println("[WATCHDOG] Waiting 10 seconds before starting heartbeat monitoring...");
+  vTaskDelay(10000 / portTICK_PERIOD_MS);
+
+  // Initialize heartbeat timestamp AFTER the delay
   portENTER_CRITICAL(&heartbeatMux);
   lastHeartbeatMillis = millis();
   portEXIT_CRITICAL(&heartbeatMux);
+
+  Serial.println("[WATCHDOG] Heartbeat monitoring started!");
 
   uint32_t lastWarningMillis = 0;
   const uint32_t HEARTBEAT_TIMEOUT = 20000; // 20 seconds without heartbeat = problem!
