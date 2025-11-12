@@ -61,6 +61,7 @@ void setup() {
 
 void loop() {
   static uint32_t previousMillis;
+  static uint32_t previousWiFiCheck = 0;
   uint32_t currentMillis = millis();
 
   // Reset Watchdog Timer to prevent reboot
@@ -68,8 +69,18 @@ void loop() {
     esp_task_wdt_reset();
   }
 
-  // WiFi reconnection
-  wifiMulti.run();
+  // WiFi reconnection - ONLY if disconnected and max once per 30 seconds
+  // CRITICAL FIX: wifiMulti.run() is BLOCKING and can take 5-10 seconds!
+  // Calling it every loop() iteration causes massive freezes when WiFi is down.
+  if (currentMillis - previousWiFiCheck >= 30000) {
+    previousWiFiCheck = currentMillis;
+
+    // Only attempt reconnection if WiFi is actually disconnected
+    if (WiFi.status() != WL_CONNECTED && wifiEverConnected) {
+      Serial.println("[MAIN] WiFi disconnected, attempting reconnection...");
+      wifiMulti.run();
+    }
+  }
 
   // Every 5 seconds
   if (currentMillis - previousMillis >= 5000 * 1) {
