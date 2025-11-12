@@ -3,6 +3,7 @@
 #include "types.h"
 #include "web_html.h"
 #include "ota_html.h"
+#include "logger.h"
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
