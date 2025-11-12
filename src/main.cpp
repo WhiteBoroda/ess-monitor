@@ -5,11 +5,11 @@
 #include "ota.h"
 #include "tg.h"
 #include "types.h"
+#include "watchdog.h"
 #include "web.h"
 #include "wifi_manager.h"
 #include <Arduino.h>
 #include <Preferences.h>
-#include <esp_task_wdt.h>
 
 Preferences Pref;
 Config Cfg;
@@ -59,31 +59,25 @@ void setup() {
     TG::begin(1, 1);
   }
 
-  // Initialize Hardware Watchdog Timer
-  if (Cfg.watchdogEnabled) {
-    Serial.printf("[MAIN] Enabling Hardware Watchdog Timer: %d seconds\n", Cfg.watchdogTimeout);
-    esp_task_wdt_init(Cfg.watchdogTimeout, true); // timeout in seconds, panic on timeout
-    esp_task_wdt_add(NULL); // Add current task (loop task) to WDT
-    Serial.println("[MAIN] ✓ Watchdog Timer enabled");
-  } else {
-    Serial.println("[MAIN] Watchdog Timer disabled by configuration");
-  }
+  // Initialize inter-core watchdog on Core 1 to monitor Core 0
+  // CRITICAL: Watchdog runs on Core 1, so if Core 0 freezes, watchdog will detect it!
+  WATCHDOG::begin(1, 2); // Core 1, high priority
 }
 
 void loop() {
   static uint32_t previousMillis;
   uint32_t currentMillis = millis();
 
+  // Send heartbeat to watchdog task on Core 1
+  // CRITICAL: This tells Core 1 that Core 0 is still alive!
+  // If this stops being called, Core 1 watchdog will restart ESP32
+  WATCHDOG::heartbeat();
+
   // Handle OTA updates
   OTA::handle();
 
   // Update runtime status (WiFi status for LCD task)
   updateRuntimeStatus();
-
-  // Reset Watchdog Timer to prevent reboot
-  if (Cfg.watchdogEnabled) {
-    esp_task_wdt_reset();
-  }
 
   // Every 3 seconds: update WebSocket data and log battery state
   if (currentMillis - previousMillis >= 3000) {

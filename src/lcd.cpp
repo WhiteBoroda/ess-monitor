@@ -6,7 +6,6 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <stdint.h>
-#include <esp_task_wdt.h>
 
 extern Config Cfg;
 extern volatile EssStatus Ess;
@@ -35,12 +34,6 @@ void task(void *pvParameters) {
 
   while (1) {
     loop();
-
-    // Reset watchdog timer to prevent device reboot
-    if (Cfg.watchdogEnabled) {
-      esp_task_wdt_reset();
-    }
-
     // Safety delay in case loop() returns early
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }

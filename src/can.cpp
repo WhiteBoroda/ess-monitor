@@ -7,7 +7,6 @@
 #include <freertos/task.h>
 #include <mcp_can.h>
 #include <stdint.h>
-#include <esp_task_wdt.h>
 
 extern volatile EssStatus Ess;
 extern Config Cfg;
@@ -49,13 +48,7 @@ void task(void *pvParameters) {
   if (initCAN()) {
     while (1) {
       loop();
-
-      // Reset watchdog timer to prevent device reboot
-      if (Cfg.watchdogEnabled) {
-        esp_task_wdt_reset();
-      }
-
-      vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay to prevent WDT
+      vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay to prevent task starvation
     }
   }
 
