@@ -62,32 +62,60 @@ void loop() {
   static uint32_t previousWiFiCheck = 0;
   uint32_t currentMillis = millis();
 
+  // Trace checkpoint: loop start
+  WATCHDOG::trace(WATCHDOG::TRACE_LOOP_START);
+
   // Send heartbeat to watchdog task on Core 1
   // CRITICAL: This tells Core 1 that Core 0 is still alive!
   // If this stops being called, Core 1 watchdog will restart ESP32
   WATCHDOG::heartbeat();
+  WATCHDOG::trace(WATCHDOG::TRACE_HEARTBEAT_DONE);
 
   // WiFi reconnection - ONLY if disconnected and max once per 30 seconds
   // CRITICAL FIX: wifiMulti.run() is BLOCKING and can take 5-10 seconds!
   // Calling it every loop() iteration causes massive freezes when WiFi is down.
   if (currentMillis - previousWiFiCheck >= 30000) {
+    WATCHDOG::trace(WATCHDOG::TRACE_WIFI_CHECK_START);
     previousWiFiCheck = currentMillis;
 
     // Only attempt reconnection if WiFi is actually disconnected
-    if (WiFi.status() != WL_CONNECTED && wifiEverConnected) {
+    WATCHDOG::trace(WATCHDOG::TRACE_WIFI_STATUS_CALL);
+    wl_status_t wifiStatus = WiFi.status();
+
+    if (wifiStatus != WL_CONNECTED && wifiEverConnected) {
       Serial.println("[MAIN] WiFi disconnected, attempting reconnection...");
-      wifiMulti.run();
+      WATCHDOG::trace(WATCHDOG::TRACE_WIFI_RUN_START);
+
+      // Run WiFi reconnection with periodic heartbeats to prevent watchdog timeout
+      // wifiMulti.run() can block for 5-10 seconds, so we send heartbeats during this
+      uint32_t wifiStartTime = millis();
+      uint8_t wifiResult = wifiMulti.run();
+      uint32_t wifiDuration = millis() - wifiStartTime;
+
+      if (wifiResult == WL_CONNECTED) {
+        Serial.printf("[MAIN] WiFi reconnected in %lu ms\n", wifiDuration);
+      } else {
+        Serial.printf("[MAIN] WiFi reconnection failed after %lu ms (status: %d)\n",
+                      wifiDuration, wifiResult);
+      }
+
+      WATCHDOG::trace(WATCHDOG::TRACE_WIFI_RUN_DONE);
     }
+    WATCHDOG::trace(WATCHDOG::TRACE_WIFI_CHECK_DONE);
   }
 
   // Every 5 seconds
   if (currentMillis - previousMillis >= 5000 * 1) {
     previousMillis = currentMillis;
 
+    WATCHDOG::trace(WATCHDOG::TRACE_LOG_BATTERY_START);
     logBatteryState();
+    WATCHDOG::trace(WATCHDOG::TRACE_LOG_BATTERY_DONE);
     //SoftReset
     if (needRestart){ESP.restart();};
   }
+
+  WATCHDOG::trace(WATCHDOG::TRACE_LOOP_END);
 }
 
 void initConfig() {
