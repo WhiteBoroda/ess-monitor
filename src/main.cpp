@@ -30,6 +30,10 @@ void logBatteryState();
 void setup() {
   Serial.begin(115200);
 
+  // Check if there was a watchdog crash on previous boot
+  WATCHDOG::checkAndPrintCrashInfo();
+
+  // Load configuration from flash
   initConfig();
 
   if (initWiFi()) {

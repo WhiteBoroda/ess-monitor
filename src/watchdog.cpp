@@ -9,6 +9,18 @@ extern Config Cfg;
 
 namespace WATCHDOG {
 
+// RTC memory structure to store crash info (survives reboot)
+typedef struct {
+  uint32_t magic;            // Magic number to validate data
+  uint32_t crashTime;        // millis() when crash detected
+  uint32_t lastHeartbeat;    // Last heartbeat time
+  uint32_t timeSinceBeat;    // Time since last heartbeat
+  bool wasCrash;             // True if this was a watchdog crash
+} RTC_CrashInfo;
+
+RTC_DATA_ATTR RTC_CrashInfo rtcCrashInfo = {0};
+const uint32_t CRASH_MAGIC = 0xDEADBEEF;
+
 // Shared variable to track Core 0 heartbeat
 static volatile uint32_t lastHeartbeatMillis = 0;
 static portMUX_TYPE heartbeatMux = portMUX_INITIALIZER_UNLOCKED;
@@ -61,20 +73,20 @@ void task(void *pvParameters) {
 
     // Check if Core 0 is still alive
     if (timeSinceHeartbeat > HEARTBEAT_TIMEOUT) {
-      // Core 0 is frozen! Force restart!
-      Serial.printf("\n\n");
-      Serial.printf("╔═══════════════════════════════════════════════════════════╗\n");
-      Serial.printf("║  ⚠️  CRITICAL: CORE 0 FROZEN DETECTED!                   ║\n");
-      Serial.printf("╚═══════════════════════════════════════════════════════════╝\n");
-      Serial.printf("[WATCHDOG] Core 0 has not responded for %lu ms\n", timeSinceHeartbeat);
-      Serial.printf("[WATCHDOG] Last heartbeat was at: %lu ms\n", lastBeat);
-      Serial.printf("[WATCHDOG] Current time: %lu ms\n", currentMillis);
-      Serial.printf("[WATCHDOG] Forcing ESP32 restart in 3 seconds...\n");
-      Serial.flush();
+      // Core 0 is frozen! Save crash info to RTC memory FIRST
+      // (Serial may be blocked, so we can't rely on it)
+      rtcCrashInfo.magic = CRASH_MAGIC;
+      rtcCrashInfo.crashTime = currentMillis;
+      rtcCrashInfo.lastHeartbeat = lastBeat;
+      rtcCrashInfo.timeSinceBeat = timeSinceHeartbeat;
+      rtcCrashInfo.wasCrash = true;
 
-      vTaskDelay(3000 / portTICK_PERIOD_MS); // Give time for logs to flush
+      // Try to log to Serial (may not work if Serial is blocked)
+      // Keep it minimal and non-blocking
+      Serial.printf("\n[WATCHDOG] CORE 0 FROZEN! Restarting...\n");
 
-      ESP.restart(); // Force restart
+      // Don't wait - restart immediately
+      ESP.restart();
     }
 
     // Print warning if heartbeat is delayed (but not frozen yet)
@@ -100,6 +112,28 @@ void heartbeat() {
   portENTER_CRITICAL(&heartbeatMux);
   lastHeartbeatMillis = millis();
   portEXIT_CRITICAL(&heartbeatMux);
+}
+
+void checkAndPrintCrashInfo() {
+  // Check if there was a watchdog crash
+  if (rtcCrashInfo.magic == CRASH_MAGIC && rtcCrashInfo.wasCrash) {
+    Serial.printf("\n\n");
+    Serial.printf("╔═══════════════════════════════════════════════════════════╗\n");
+    Serial.printf("║  ⚠️  WATCHDOG CRASH DETECTED ON PREVIOUS BOOT!           ║\n");
+    Serial.printf("╚═══════════════════════════════════════════════════════════╝\n");
+    Serial.printf("[WATCHDOG] Crash information from RTC memory:\n");
+    Serial.printf("  • Crash detected at: %lu ms\n", rtcCrashInfo.crashTime);
+    Serial.printf("  • Last heartbeat at: %lu ms\n", rtcCrashInfo.lastHeartbeat);
+    Serial.printf("  • Time without heartbeat: %lu ms (%.1f seconds)\n",
+                  rtcCrashInfo.timeSinceBeat,
+                  rtcCrashInfo.timeSinceBeat / 1000.0);
+    Serial.printf("  • Core 0 was frozen for %.1f seconds before restart!\n\n",
+                  rtcCrashInfo.timeSinceBeat / 1000.0);
+
+    // Clear the crash info
+    rtcCrashInfo.wasCrash = false;
+    rtcCrashInfo.magic = 0;
+  }
 }
 
 } // namespace WATCHDOG
