@@ -1,0 +1,105 @@
+#include "watchdog.h"
+#include "types.h"
+#include <Arduino.h>
+#include <esp_task_wdt.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
+extern Config Cfg;
+
+namespace WATCHDOG {
+
+// Shared variable to track Core 0 heartbeat
+static volatile uint32_t lastHeartbeatMillis = 0;
+static portMUX_TYPE heartbeatMux = portMUX_INITIALIZER_UNLOCKED;
+
+void begin(uint8_t core, uint8_t priority);
+void task(void *pvParameters);
+void heartbeat();
+
+void begin(uint8_t core, uint8_t priority) {
+  if (!Cfg.watchdogEnabled) {
+    Serial.println("[WATCHDOG] Disabled by configuration");
+    return;
+  }
+
+  // Initialize Hardware Watchdog Timer
+  Serial.printf("[WATCHDOG] Initializing on Core %d with timeout: %d seconds\n",
+                core, Cfg.watchdogTimeout);
+  esp_task_wdt_init(Cfg.watchdogTimeout, true); // timeout in seconds, panic on timeout
+
+  // Start watchdog monitoring task on specified core (should be Core 1)
+  xTaskCreatePinnedToCore(task, "watchdog_task", 4096, NULL, priority, NULL, core);
+}
+
+void task(void *pvParameters) {
+  Serial.printf("[WATCHDOG] Task running on Core %d\n", (uint32_t)xPortGetCoreID());
+
+  // Add this task to WDT
+  esp_task_wdt_add(NULL);
+  Serial.println("[WATCHDOG] ✓ Hardware Watchdog enabled and monitoring started");
+
+  // Initialize heartbeat timestamp
+  portENTER_CRITICAL(&heartbeatMux);
+  lastHeartbeatMillis = millis();
+  portEXIT_CRITICAL(&heartbeatMux);
+
+  uint32_t lastWarningMillis = 0;
+  const uint32_t HEARTBEAT_TIMEOUT = 20000; // 20 seconds without heartbeat = problem!
+  const uint32_t WARNING_INTERVAL = 5000;   // Print warning every 5 seconds
+
+  while (1) {
+    uint32_t currentMillis = millis();
+    uint32_t lastBeat;
+
+    // Get last heartbeat timestamp (thread-safe)
+    portENTER_CRITICAL(&heartbeatMux);
+    lastBeat = lastHeartbeatMillis;
+    portEXIT_CRITICAL(&heartbeatMux);
+
+    uint32_t timeSinceHeartbeat = currentMillis - lastBeat;
+
+    // Check if Core 0 is still alive
+    if (timeSinceHeartbeat > HEARTBEAT_TIMEOUT) {
+      // Core 0 is frozen! Force restart!
+      Serial.printf("\n\n");
+      Serial.printf("╔═══════════════════════════════════════════════════════════╗\n");
+      Serial.printf("║  ⚠️  CRITICAL: CORE 0 FROZEN DETECTED!                   ║\n");
+      Serial.printf("╚═══════════════════════════════════════════════════════════╝\n");
+      Serial.printf("[WATCHDOG] Core 0 has not responded for %lu ms\n", timeSinceHeartbeat);
+      Serial.printf("[WATCHDOG] Last heartbeat was at: %lu ms\n", lastBeat);
+      Serial.printf("[WATCHDOG] Current time: %lu ms\n", currentMillis);
+      Serial.printf("[WATCHDOG] Forcing ESP32 restart in 3 seconds...\n");
+      Serial.flush();
+
+      vTaskDelay(3000 / portTICK_PERIOD_MS); // Give time for logs to flush
+
+      ESP.restart(); // Force restart
+    }
+
+    // Print warning if heartbeat is delayed (but not frozen yet)
+    if (timeSinceHeartbeat > 10000 && (currentMillis - lastWarningMillis > WARNING_INTERVAL)) {
+      Serial.printf("[WATCHDOG] ⚠️ WARNING: Core 0 heartbeat delayed: %lu ms\n",
+                    timeSinceHeartbeat);
+      lastWarningMillis = currentMillis;
+    }
+
+    // Reset hardware watchdog timer (this task is alive on Core 1)
+    esp_task_wdt_reset();
+
+    // Check every 1 second
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+
+  Serial.println("[WATCHDOG] Task exited (should never happen!)");
+  vTaskDelete(NULL);
+}
+
+void heartbeat() {
+  // Called from Core 0 main loop to indicate it's alive
+  portENTER_CRITICAL(&heartbeatMux);
+  lastHeartbeatMillis = millis();
+  portEXIT_CRITICAL(&heartbeatMux);
+}
+
+} // namespace WATCHDOG
