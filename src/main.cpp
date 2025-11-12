@@ -4,13 +4,13 @@
 #include "logger.h"
 #include "tg.h"
 #include "types.h"
+#include "watchdog.h"
 #include "web.h"
 #include <Arduino.h>
 #include <IPAddress.h>
 #include <Preferences.h>
 #include <WiFi.h>
 #include <WiFiMulti.h>
-#include <esp_task_wdt.h>
 
 WiFiMulti wifiMulti;
 
@@ -48,15 +48,9 @@ void setup() {
   WEB::begin(1, 1);
   LCD::begin(1, 1);
 
-  // Initialize Hardware Watchdog Timer
-  if (Cfg.watchdogEnabled) {
-    Serial.printf("[MAIN] Enabling Hardware Watchdog Timer: %d seconds\n", Cfg.watchdogTimeout);
-    esp_task_wdt_init(Cfg.watchdogTimeout, true); // timeout in seconds, panic on timeout
-    esp_task_wdt_add(NULL); // Add current task (loop task) to WDT
-    Serial.println("[MAIN] ✓ Watchdog Timer enabled");
-  } else {
-    Serial.println("[MAIN] Watchdog Timer disabled by configuration");
-  }
+  // Initialize inter-core watchdog on Core 1 to monitor Core 0
+  // CRITICAL: Watchdog runs on Core 1, so if Core 0 freezes, watchdog will detect it!
+  WATCHDOG::begin(1, 2); // Core 1, high priority
 }
 
 void loop() {
@@ -64,10 +58,10 @@ void loop() {
   static uint32_t previousWiFiCheck = 0;
   uint32_t currentMillis = millis();
 
-  // Reset Watchdog Timer to prevent reboot
-  if (Cfg.watchdogEnabled) {
-    esp_task_wdt_reset();
-  }
+  // Send heartbeat to watchdog task on Core 1
+  // CRITICAL: This tells Core 1 that Core 0 is still alive!
+  // If this stops being called, Core 1 watchdog will restart ESP32
+  WATCHDOG::heartbeat();
 
   // WiFi reconnection - ONLY if disconnected and max once per 30 seconds
   // CRITICAL FIX: wifiMulti.run() is BLOCKING and can take 5-10 seconds!
