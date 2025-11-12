@@ -11,6 +11,9 @@ void begin(uint8_t core, uint8_t priority);
 // Update heartbeat from Core 0 (call this from main loop)
 void heartbeat();
 
+// Check and print crash info from RTC memory (call at startup)
+void checkAndPrintCrashInfo();
+
 } // namespace WATCHDOG
 
 #endif
