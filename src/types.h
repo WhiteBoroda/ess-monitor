@@ -42,8 +42,8 @@ struct RuntimeStatus {
 
 typedef struct Config {
   bool wifiSTA = false;
-  char wifiSSID[128] = "ITC24";
-  char wifiPass[128] = "12345678";
+  char wifiSSID[128];
+  char wifiPass[128];
 
   char hostname[32] = "ess-monitor";
 
