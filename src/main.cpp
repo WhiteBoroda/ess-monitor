@@ -6,6 +6,7 @@
 #include "tg.h"
 #include "types.h"
 #include "web.h"
+#include "runtime_cache.h"
 #include "wifi_manager.h"
 #include <Arduino.h>
 #include <Preferences.h>
@@ -14,11 +15,9 @@
 Preferences Pref;
 Config Cfg;
 volatile EssStatus Ess;
-RuntimeStatus Runtime;
 
 void initConfig();
 void logBatteryState();
-void updateRuntimeStatus();
 
 bool needRestart = false;
 
@@ -77,8 +76,8 @@ void loop() {
   // Handle OTA updates
   OTA::handle();
 
-  // Update runtime status (WiFi status for LCD task)
-  updateRuntimeStatus();
+  // Update runtime status (WiFi status for tasks running on other core)
+  RuntimeCache::updateFromWiFi();
 
   // Reset Watchdog Timer to prevent reboot
   if (Cfg.watchdogEnabled) {
@@ -179,15 +178,3 @@ void logBatteryState() {
 #endif
 }
 
-void updateRuntimeStatus() {
-  // Update WiFi status from Core 0 (main loop) for use in other tasks (Core 1)
-  // WiFi.status() is not thread-safe, so we cache the result here
-  Runtime.wifiConnected = (WiFi.status() == WL_CONNECTED);
-
-  if (Runtime.wifiConnected) {
-    // Cache IP address to avoid blocking calls from other tasks
-    strlcpy(Runtime.cachedIP, WiFi.localIP().toString().c_str(), sizeof(Runtime.cachedIP));
-  } else {
-    strlcpy(Runtime.cachedIP, "0.0.0.0", sizeof(Runtime.cachedIP));
-  }
-}

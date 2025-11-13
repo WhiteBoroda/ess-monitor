@@ -1,6 +1,7 @@
 #include "web.h"
 #include "can.h"
 #include "types.h"
+#include "runtime_cache.h"
 #include "web_html.h"
 #include "ota_html.h"
 #include <ArduinoJson.h>
@@ -8,7 +9,6 @@
 #include <ESPAsyncWebServer.h>
 #include <WebSerialLite.h>
 #include <Preferences.h>
-#include <WiFi.h>
 #include <Update.h>
 
 extern Config Cfg;
@@ -54,13 +54,14 @@ void begin() {
     // Handle commands
     if (msg == "status" || msg == "info") {
       WebSerial.println("\n========== ESS Monitor Status ==========");
+      RuntimeStatus runtime = RuntimeCache::getSnapshot();
       WebSerial.println("Version: " + String(VERSION));
       WebSerial.println("Hostname: " + String(Cfg.hostname));
-      WebSerial.println(String("WiFi: ") + (WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected"));
-      if (WiFi.status() == WL_CONNECTED) {
-        WebSerial.println("  SSID: " + WiFi.SSID());
-        WebSerial.println("  IP: " + WiFi.localIP().toString());
-        WebSerial.println("  Signal: " + String(WiFi.RSSI()) + " dBm");
+      WebSerial.println(String("WiFi: ") + (runtime.wifiConnected ? "Connected" : "Disconnected"));
+      if (runtime.wifiConnected) {
+        WebSerial.println("  SSID: " + String(runtime.cachedSSID));
+        WebSerial.println("  IP: " + String(runtime.cachedIP));
+        WebSerial.println("  Signal: " + String(runtime.wifiRSSI) + " dBm");
       }
       WebSerial.println(String("CAN: ") + (CAN::isInitialized() ? "OK" : "ERROR - Module not detected"));
       WebSerial.println("Uptime: " + String(millis() / 1000) + " seconds");
@@ -443,10 +444,12 @@ void begin() {
     doc["current"] = ess.current;
     doc["temperature"] = ess.temperature;
     doc["canStatus"] = CAN::isInitialized() ? "OK" : "ERROR";
+    RuntimeStatus runtime = RuntimeCache::getSnapshot();
     doc["hostname"] = Cfg.hostname;
-    doc["ip"] = WiFi.localIP().toString();
-    doc["ssid"] = WiFi.SSID();
-    doc["rssi"] = WiFi.RSSI();
+    doc["ip"] = runtime.cachedIP;
+    doc["ssid"] = runtime.wifiConnected ? runtime.cachedSSID : "Not connected";
+    doc["rssi"] = runtime.wifiConnected ? runtime.wifiRSSI : 0;
+    doc["wifi"] = runtime.wifiConnected; // mirrored in websocket payload for quick checks on UI
     doc["version"] = VERSION;
     doc["uptime"] = String(millis() / 1000) + "s";
     doc["freeHeap"] = ESP.getFreeHeap();
@@ -480,18 +483,11 @@ void updateLiveData() {
   doc["canStatus"] = CAN::isInitialized() ? "OK" : "ERROR";
   doc["hostname"] = Cfg.hostname;
 
-  // CRITICAL FIX: Check WiFi status BEFORE calling blocking WiFi functions
-  // WiFi.localIP(), WiFi.SSID(), WiFi.RSSI() can block for 10+ seconds if WiFi is disconnected
-  // This causes watchdog timeout and device reboot
-  if (WiFi.status() == WL_CONNECTED) {
-    doc["ip"] = WiFi.localIP().toString();
-    doc["ssid"] = WiFi.SSID();
-    doc["rssi"] = WiFi.RSSI();
-  } else {
-    doc["ip"] = "0.0.0.0";
-    doc["ssid"] = "Not connected";
-    doc["rssi"] = 0;
-  }
+  RuntimeStatus runtime = RuntimeCache::getSnapshot();
+  doc["ip"] = runtime.cachedIP;
+  doc["ssid"] = runtime.wifiConnected ? runtime.cachedSSID : "Not connected";
+  doc["rssi"] = runtime.wifiConnected ? runtime.wifiRSSI : 0;
+  doc["wifi"] = runtime.wifiConnected; // allow front-end to quickly detect WiFi loss
 
   doc["version"] = VERSION;
   doc["uptime"] = String(millis() / 1000) + "s";

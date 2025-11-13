@@ -34,11 +34,11 @@ extern bool needRestart;
 
 // Runtime status (updated from main loop, read from other tasks)
 struct RuntimeStatus {
-  volatile bool wifiConnected = false;
+  bool wifiConnected = false;
   char cachedIP[16] = "0.0.0.0";
+  char cachedSSID[33] = "";
+  int32_t wifiRSSI = 0;
 };
-
-extern RuntimeStatus Runtime;
 
 typedef struct Config {
   bool wifiSTA = false;
