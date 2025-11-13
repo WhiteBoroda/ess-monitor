@@ -10,7 +10,53 @@
 #include "wifi_manager.h"
 #include <Arduino.h>
 #include <Preferences.h>
+#include <esp_system.h>
 #include <esp_task_wdt.h>
+
+static const char *resetReasonToString(esp_reset_reason_t reason) {
+  switch (reason) {
+  case ESP_RST_UNKNOWN:
+    return "Unknown";
+  case ESP_RST_POWERON:
+    return "Power-on";
+  case ESP_RST_EXT:
+    return "External pin";
+  case ESP_RST_SW:
+    return "Software";
+  case ESP_RST_PANIC:
+    return "Software panic";
+  case ESP_RST_INT_WDT:
+    return "Interrupt watchdog";
+  case ESP_RST_TASK_WDT:
+    return "Task watchdog";
+  case ESP_RST_WDT:
+    return "Other watchdog";
+  case ESP_RST_DEEPSLEEP:
+    return "Deep sleep";
+  case ESP_RST_BROWNOUT:
+    return "Brownout";
+  case ESP_RST_SDIO:
+    return "SDIO";
+#ifdef ESP_RST_USB
+  case ESP_RST_USB:
+    return "USB";
+#endif
+#ifdef ESP_RST_JTAG
+  case ESP_RST_JTAG:
+    return "JTAG";
+#endif
+#ifdef ESP_RST_TIMEWDT
+  case ESP_RST_TIMEWDT:
+    return "Time watchdog";
+#endif
+#ifdef ESP_RST_RTCWDT
+  case ESP_RST_RTCWDT:
+    return "RTC watchdog";
+#endif
+  default:
+    return "Other";
+  }
+}
 
 Preferences Pref;
 Config Cfg;
@@ -24,6 +70,25 @@ bool needRestart = false;
 void setup() {
   Serial.begin(115200);
   Serial.println("\n\n========== ESS Monitor Starting ==========");
+
+  esp_reset_reason_t resetReason = esp_reset_reason();
+  const char *resetReasonStr = resetReasonToString(resetReason);
+  Serial.printf("[MAIN] Previous reset reason: %s (code=%d)\n", resetReasonStr,
+                static_cast<int>(resetReason));
+  if (resetReason == ESP_RST_TASK_WDT || resetReason == ESP_RST_WDT
+#ifdef ESP_RST_INT_WDT
+      || resetReason == ESP_RST_INT_WDT
+#endif
+#ifdef ESP_RST_TIMEWDT
+      || resetReason == ESP_RST_TIMEWDT
+#endif
+#ifdef ESP_RST_RTCWDT
+      || resetReason == ESP_RST_RTCWDT
+#endif
+  ) {
+    Serial.println(
+        "[MAIN] ⚠ Watchdog reset detected — device rebooted by watchdog.");
+  }
 
   // Load configuration from flash
   initConfig();
