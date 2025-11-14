@@ -40,6 +40,15 @@ struct RuntimeStatus {
 
 extern RuntimeStatus Runtime;
 
+struct ResetStatus {
+  int reasonCode = 0;
+  bool watchdog = false;
+  char reasonLabel[32] = "Unknown";
+  char detail[160] = "";
+};
+
+extern ResetStatus Reset;
+
 typedef struct Config {
   bool wifiSTA = false;
   char wifiSSID[128] = "ITC24";

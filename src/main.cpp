@@ -9,22 +9,34 @@
 #include "wifi_manager.h"
 #include <Arduino.h>
 #include <Preferences.h>
+#include <WiFi.h>
+#include <esp_system.h>
 #include <esp_task_wdt.h>
+#include <string.h>
 
 Preferences Pref;
 Config Cfg;
 volatile EssStatus Ess;
 RuntimeStatus Runtime;
+ResetStatus Reset;
 
 void initConfig();
 void logBatteryState();
 void updateRuntimeStatus();
-
+void captureResetInfo();
+void logResetInfo();
 bool needRestart = false;
 
 void setup() {
   Serial.begin(115200);
   Serial.println("\n\n========== ESS Monitor Starting ==========");
+
+  captureResetInfo();
+  Serial.printf("[RESET] Last reset reason: %s (%d)\n", Reset.reasonLabel,
+                Reset.reasonCode);
+  if (Reset.detail[0] != '\0') {
+    Serial.printf("[RESET] %s\n", Reset.detail);
+  }
 
   // Load configuration from flash
   initConfig();
@@ -42,6 +54,7 @@ void setup() {
 
   // Initialize Logger AFTER WebSerial is ready
   Logger::begin();
+  logResetInfo();
 
   // Initialize CAN bus (logs will go to WebSerial now)
   CAN::begin(1, 1);
@@ -77,7 +90,7 @@ void loop() {
   // Handle OTA updates
   OTA::handle();
 
-  // Update runtime status (WiFi status for LCD task)
+  // Update runtime status (WiFi status for tasks running on other core)
   updateRuntimeStatus();
 
   // Reset Watchdog Timer to prevent reboot
@@ -179,15 +192,155 @@ void logBatteryState() {
 #endif
 }
 
+namespace {
+const char *resetReasonToString(esp_reset_reason_t reason) {
+  switch (reason) {
+    case ESP_RST_UNKNOWN:
+      return "Unknown";
+    case ESP_RST_POWERON:
+      return "Power-on";
+    case ESP_RST_EXT:
+      return "External";
+    case ESP_RST_SW:
+      return "Software";
+    case ESP_RST_PANIC:
+      return "Panic";
+    case ESP_RST_INT_WDT:
+      return "Interrupt Watchdog";
+    case ESP_RST_TASK_WDT:
+      return "Task Watchdog";
+    case ESP_RST_WDT:
+      return "Other Watchdog";
+    case ESP_RST_DEEPSLEEP:
+      return "Deep-sleep";
+    case ESP_RST_BROWNOUT:
+      return "Brownout";
+    case ESP_RST_SDIO:
+      return "SDIO";
+#ifdef ESP_RST_USB
+    case ESP_RST_USB:
+      return "USB";
+#endif
+#ifdef ESP_RST_RTCWDT
+    case ESP_RST_RTCWDT:
+      return "RTC Watchdog";
+#endif
+#ifdef ESP_RST_GLITCH
+    case ESP_RST_GLITCH:
+      return "Glitch";
+#endif
+#ifdef ESP_RST_CHIP
+    case ESP_RST_CHIP:
+      return "Chip";
+#endif
+#ifdef ESP_RST_CORE
+    case ESP_RST_CORE:
+      return "Core";
+#endif
+#ifdef ESP_RST_APPCPU
+    case ESP_RST_APPCPU:
+      return "App CPU";
+#endif
+#ifdef ESP_RST_BBPLL
+    case ESP_RST_BBPLL:
+      return "BBPLL";
+#endif
+#ifdef ESP_RST_JTAG
+    case ESP_RST_JTAG:
+      return "JTAG";
+#endif
+    default:
+      return "Unlisted";
+  }
+}
+
+bool isWatchdogReason(esp_reset_reason_t reason) {
+  switch (reason) {
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT:
+#ifdef ESP_RST_RTCWDT
+    case ESP_RST_RTCWDT:
+#endif
+      return true;
+    default:
+      return false;
+  }
+}
+
+const char *detailHintFor(esp_reset_reason_t reason) {
+  if (isWatchdogReason(reason)) {
+    return "Watchdog reset detected. Check for blocking tasks or deadlocks.";
+  }
+
+  switch (reason) {
+    case ESP_RST_PANIC:
+      return "CPU panic reset detected. Inspect crash logs for root cause.";
+    case ESP_RST_BROWNOUT:
+      return "Brownout detected. Verify power supply stability.";
+    default:
+      return "";
+  }
+}
+
+Logger::Level levelForReset(esp_reset_reason_t reason) {
+  if (reason == ESP_RST_PANIC) {
+    return Logger::LEVEL_ERR;
+  }
+  if (isWatchdogReason(reason) || reason == ESP_RST_BROWNOUT) {
+    return Logger::LEVEL_WARNING;
+  }
+  return Logger::LEVEL_INFO;
+}
+} // namespace
+
 void updateRuntimeStatus() {
-  // Update WiFi status from Core 0 (main loop) for use in other tasks (Core 1)
-  // WiFi.status() is not thread-safe, so we cache the result here
   Runtime.wifiConnected = (WiFi.status() == WL_CONNECTED);
 
   if (Runtime.wifiConnected) {
-    // Cache IP address to avoid blocking calls from other tasks
-    strlcpy(Runtime.cachedIP, WiFi.localIP().toString().c_str(), sizeof(Runtime.cachedIP));
+    strlcpy(Runtime.cachedIP, WiFi.localIP().toString().c_str(),
+            sizeof(Runtime.cachedIP));
   } else {
     strlcpy(Runtime.cachedIP, "0.0.0.0", sizeof(Runtime.cachedIP));
   }
 }
+
+void captureResetInfo() {
+  esp_reset_reason_t reason = esp_reset_reason();
+  Reset.reasonCode = static_cast<int>(reason);
+  Reset.watchdog = isWatchdogReason(reason);
+  strlcpy(Reset.reasonLabel, resetReasonToString(reason),
+          sizeof(Reset.reasonLabel));
+  strlcpy(Reset.detail, detailHintFor(reason), sizeof(Reset.detail));
+}
+
+void logResetInfo() {
+  Logger::Level level =
+      levelForReset(static_cast<esp_reset_reason_t>(Reset.reasonCode));
+
+  switch (level) {
+    case Logger::LEVEL_ERR:
+      LOG_E("RESET", "Last reset reason: %s (%d)", Reset.reasonLabel,
+            Reset.reasonCode);
+      break;
+    case Logger::LEVEL_WARNING:
+      LOG_W("RESET", "Last reset reason: %s (%d)", Reset.reasonLabel,
+            Reset.reasonCode);
+      break;
+    default:
+      LOG_I("RESET", "Last reset reason: %s (%d)", Reset.reasonLabel,
+            Reset.reasonCode);
+      break;
+  }
+
+  if (Reset.detail[0] != '\0') {
+    if (level == Logger::LEVEL_ERR) {
+      LOG_E("RESET", "%s", Reset.detail);
+    } else if (level == Logger::LEVEL_WARNING) {
+      LOG_W("RESET", "%s", Reset.detail);
+    } else {
+      LOG_I("RESET", "%s", Reset.detail);
+    }
+  }
+}
+

@@ -2,7 +2,6 @@
 #include "types.h"
 #include <HardwareSerial.h>
 #include <U8g2lib.h>
-#include <WiFi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <stdint.h>
@@ -60,6 +59,7 @@ void loop() {
 void draw() {
   // Get thread-safe copy of battery status
   EssStatus ess = CAN::getEssStatus();
+  RuntimeStatus runtime = Runtime;
 
   lcd->clearBuffer();
   lcd->setFont(u8g2_font_pressstart2p_8r);
@@ -103,9 +103,9 @@ void draw() {
   } else {
     // CRITICAL FIX: Use cached WiFi status from Core 0 (main loop)
     // WiFi.status() is not thread-safe when called from Core 1 (LCD task)
-    if (Runtime.wifiConnected) {
+    if (runtime.wifiConnected) {
       lcd->drawStr(0, 50, "IP:");
-      lcd->drawStr(18, 50, Runtime.cachedIP);
+      lcd->drawStr(18, 50, runtime.cachedIP);
     } else {
       lcd->drawStr(0, 50, "AP:");
       lcd->drawStr(18, 50, Cfg.hostname);
