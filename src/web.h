@@ -9,6 +9,9 @@ namespace WEB {
 // Initialize web server (call after WiFi is connected)
 void begin();
 
+// Main loop handler (call from loop())
+void loop();
+
 // Get reference to the web server instance
 AsyncWebServer& getServer();
 

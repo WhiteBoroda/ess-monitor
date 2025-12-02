@@ -1,80 +1,80 @@
 #include "wifi_manager.h"
 #include "types.h"
-#include <ESPAsyncWiFiManager.h>
-#include <DNSServer.h>
 #include <ESPmDNS.h>
 #include <WiFi.h>
+#include <Preferences.h>
 
 extern Config Cfg;
+extern Preferences Pref;
 
 namespace WiFiMgr {
 
-DNSServer dnsServer;
-AsyncWebServer configServer(80);  // Temporary server for WiFiManager only
 bool apMode = false;
 String apSSID = "";
+const char* apPass = "12345678";
 
 bool begin() {
-  Serial.println("\n[WiFi] Initializing WiFi Manager...");
+  Serial.println("\n[WiFi] Initializing WiFi...");
+
+  // 1. Reset WiFi state
+  WiFi.disconnect();
+  WiFi.mode(WIFI_OFF);
+  delay(100);
+
+  // 2. Set mode to AP+STA
+  WiFi.mode(WIFI_AP_STA);
+  
+  // 3. Disable power saving for stability
+  WiFi.setSleep(false);
 
   // Set hostname
   WiFi.setHostname(Cfg.hostname);
 
-  // Create WiFi Manager
-  AsyncWiFiManager wifiManager(&configServer, &dnsServer);
+  // Setup AP
+  apSSID = String(Cfg.hostname);
+  Serial.printf("[WiFi] Starting AP: %s (Pass: %s)\n", apSSID.c_str(), apPass);
+  WiFi.softAP(apSSID.c_str(), apPass);
+  
+  Serial.printf("[WiFi] AP IP: %s\n", WiFi.softAPIP().toString().c_str());
 
-  // Set timeout for config portal (3 minutes)
-  wifiManager.setConfigPortalTimeout(180);
+  // 4. Connect to STA if enabled
+  bool connected = false;
+  if (Cfg.wifiSTA) {
+    Serial.printf("[WiFi] Connecting to %s...\n", Cfg.wifiSSID);
+    WiFi.begin(Cfg.wifiSSID, Cfg.wifiPass);
 
-  // Set minimum signal quality
-  wifiManager.setMinimumSignalQuality(10);
-
-  // Custom AP name based on hostname
-  apSSID = String(Cfg.hostname) + "-AP";
-
-  Serial.printf("[WiFi] Starting WiFiManager with AP: %s\n", apSSID.c_str());
-  Serial.println("[WiFi] If not connected, device will create Access Point");
-  Serial.println("[WiFi] Connect to AP and navigate to 192.168.4.1 to configure");
-
-  // Try to connect, if fails - start AP mode
-  // autoConnect will:
-  // 1. Try to connect to saved WiFi
-  // 2. If fails, create AP with captive portal
-  // 3. Wait for user to configure WiFi
-  // 4. Restart and connect to configured WiFi
-  bool connected = wifiManager.autoConnect(apSSID.c_str(), "12345678");
-
-  // IMPORTANT: Stop and cleanup the config server to free port 80
-  // The main web server will use port 80 after this
-  configServer.end();
-  dnsServer.stop();
-
-  if (connected) {
-    apMode = false;
-    Serial.println("[WiFi] ✓ Connected to WiFi!");
-    Serial.printf("[WiFi]   SSID: %s\n", WiFi.SSID().c_str());
-    Serial.printf("[WiFi]   IP: %s\n", WiFi.localIP().toString().c_str());
-    Serial.printf("[WiFi]   Signal: %d dBm\n", WiFi.RSSI());
-    Serial.printf("[WiFi]   Hostname: %s.local\n", Cfg.hostname);
-
-    // Start mDNS
-    if (MDNS.begin(Cfg.hostname)) {
-      Serial.printf("[WiFi] ✓ mDNS started: http://%s.local\n", Cfg.hostname);
-      MDNS.addService("http", "tcp", 80);
-    } else {
-      Serial.println("[WiFi] ✗ mDNS failed to start");
+    // Wait for connection (up to 15 seconds)
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+      delay(500);
+      Serial.print(".");
+      attempts++;
     }
+    Serial.println();
 
-    // Give some time for cleanup
-    delay(100);
-
-    return true;
+    if (WiFi.status() == WL_CONNECTED) {
+      connected = true;
+      Serial.println("[WiFi] Connected!");
+      Serial.printf("[WiFi]   SSID: %s\n", WiFi.SSID().c_str());
+      Serial.printf("[WiFi]   IP: %s\n", WiFi.localIP().toString().c_str());
+      Serial.printf("[WiFi]   Signal: %d dBm\n", WiFi.RSSI());
+    } else {
+      Serial.println("[WiFi] Failed to connect (timeout).");
+    }
   } else {
-    apMode = true;
-    Serial.println("[WiFi] ✗ Failed to connect to WiFi");
-    Serial.println("[WiFi] Device is in AP mode - please configure WiFi");
-    return false;
+    Serial.println("[WiFi] STA mode disabled. Running in AP-only mode.");
   }
+
+  // 5. Start mDNS
+  if (MDNS.begin(Cfg.hostname)) {
+    Serial.printf("[WiFi] mDNS started: http://%s.local\n", Cfg.hostname);
+    MDNS.addService("http", "tcp", 80);
+  } else {
+    Serial.println("[WiFi] mDNS failed to start");
+  }
+
+  apMode = !connected;
+  return connected;
 }
 
 bool isConnected() {
@@ -82,10 +82,10 @@ bool isConnected() {
 }
 
 String getIP() {
-  if (apMode) {
-    return WiFi.softAPIP().toString();
-  } else {
+  if (isConnected()) {
     return WiFi.localIP().toString();
+  } else {
+    return WiFi.softAPIP().toString();
   }
 }
 

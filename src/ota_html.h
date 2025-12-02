@@ -177,7 +177,7 @@ const char OTA_HTML[] PROGMEM = R"rawliteral(
 
     fileInput.addEventListener('change', function(e) {
       if (e.target.files.length > 0) {
-        fileName.textContent = '✓ ' + e.target.files[0].name;
+        fileName.textContent = '\u2713 ' + e.target.files[0].name;
       } else {
         fileName.textContent = '';
       }
@@ -224,19 +224,19 @@ const char OTA_HTML[] PROGMEM = R"rawliteral(
         if (xhr.status === 200) {
           progressBar.style.width = '100%';
           progressBar.textContent = '100%';
-          showMessage('✓ Update successful! Device is rebooting...', 'success');
+          showMessage('\u2713 Update successful! Device is rebooting...', 'success');
           setTimeout(function() {
             window.location.href = '/';
           }, 5000);
         } else {
-          showMessage('✗ Update failed: ' + xhr.responseText, 'error');
+          showMessage('\u2717 Update failed: ' + xhr.responseText, 'error');
           uploadBtn.disabled = false;
         }
       });
 
       // Upload error
       xhr.addEventListener('error', function() {
-        showMessage('✗ Upload failed. Please try again.', 'error');
+        showMessage('\u2717 Upload failed. Please try again.', 'error');
         uploadBtn.disabled = false;
       });
 

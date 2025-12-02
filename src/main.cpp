@@ -93,7 +93,13 @@ void setup() {
   // Load configuration from flash
   initConfig();
 
-  // Initialize WiFi with captive portal
+  // Initialize LCD display first so user sees something
+  LCD::begin(1, 1);
+
+  // Initialize CAN bus immediately to start reading battery data
+  CAN::begin(1, 1);
+
+  // Initialize WiFi with captive portal (this can take up to 180s)
   bool wifiConnected = WiFiMgr::begin();
 
   // Initialize OTA updates (must be after WiFi)
@@ -106,12 +112,6 @@ void setup() {
 
   // Initialize Logger AFTER WebSerial is ready
   Logger::begin();
-
-  // Initialize CAN bus (logs will go to WebSerial now)
-  CAN::begin(1, 1);
-
-  // Initialize LCD display
-  LCD::begin(1, 1);
 
   // Initialize MQTT if WiFi connected and enabled
   if (wifiConnected && Cfg.mqttEnabled) {
@@ -140,6 +140,9 @@ void loop() {
 
   // Handle OTA updates
   OTA::handle();
+  
+  // Handle Web Server cleanup
+  WEB::loop();
 
   // Update runtime status (WiFi status for tasks running on other core)
   RuntimeCache::updateFromWiFi();
@@ -147,6 +150,21 @@ void loop() {
   // Reset Watchdog Timer to prevent reboot
   if (Cfg.watchdogEnabled) {
     esp_task_wdt_reset();
+  }
+
+  // Soft restart if requested (with delay to allow sending response)
+  if (needRestart) {
+    static uint32_t restartTime = 0;
+    if (restartTime == 0) {
+      restartTime = millis();
+      Serial.println("[MAIN] Restart requested. Rebooting in 1s...");
+    }
+    
+    if (millis() - restartTime > 1000) {
+      Serial.println("[MAIN] Rebooting now!");
+      delay(100); // Short delay for Serial flush
+      ESP.restart();
+    }
   }
 
   // Every 3 seconds: update WebSocket data and log battery state
@@ -158,12 +176,6 @@ void loop() {
 
     // Log battery state (if DEBUG defined)
     logBatteryState();
-
-    // Soft restart if requested
-    if (needRestart) {
-      Serial.println("[MAIN] Restarting device...");
-      ESP.restart();
-    }
   }
 }
 
@@ -175,6 +187,14 @@ void initConfig() {
   Pref.getString(CFG_WIFI_PASS, Cfg.wifiPass, sizeof(Cfg.wifiPass));
 
   Pref.getString(CFG_HOSTNAME, Cfg.hostname, sizeof(Cfg.hostname));
+
+  // Auto-generate unique hostname if default or empty
+  if (strlen(Cfg.hostname) == 0 || strcmp(Cfg.hostname, "ess-monitor") == 0) {
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+    snprintf(Cfg.hostname, sizeof(Cfg.hostname), "ess-mon-%02x%02x", mac[4], mac[5]);
+    Serial.printf("[MAIN] Generated unique hostname: %s\n", Cfg.hostname);
+  }
 
   Cfg.chargeLimit = Pref.getUChar(CFG_INVERTER_CHARGE_LIMIT, Cfg.chargeLimit);
   Cfg.dishargeLimit =
@@ -242,4 +262,3 @@ void logBatteryState() {
   }
 #endif
 }
-

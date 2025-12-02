@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #ifndef VERSION
-#define VERSION "v1.1-dev"
+#define VERSION "v2.1-dev"
 #endif
 
 #define CFG_WIFI_STA "wifi.sta"
@@ -82,8 +82,9 @@ typedef struct EssStatus {
   float ratedChargeCurrent;
   float ratedDischargeCurrent;
   float temperature;
-  uint8_t bmsWarning;
-  uint8_t bmsError;
+  uint8_t bmsProtection; // Byte 0 of 0x359
+  uint8_t bmsWarning;    // Byte 1 of 0x359
+  uint8_t bmsError;      // Byte 3 of 0x359 (or Alarm 2)
 } EssStatus;
 
 #endif

@@ -2,6 +2,7 @@
 #define _CAN_H
 
 #include <stdint.h>
+#include <Arduino.h>
 
 #define CS_PIN 5
 #define INT_PIN 15
@@ -33,6 +34,7 @@ uint32_t getKeepAliveCounter();
 uint32_t getKeepAliveFailures();
 uint32_t getTimeSinceLastKeepAlive();
 EssStatus getEssStatus();
+String getBmsStatusString();
 bool isInitialized();
 
 } // namespace CAN

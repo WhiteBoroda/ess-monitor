@@ -112,40 +112,6 @@ void readCAN() {
   can.readMsgBuf((unsigned long *)&f.id, &f.dlc, f.data);
   // logReadDataFrame(&f);
   processDataFrame(&f);
-
-  // vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-  // // Charge/health
-  // DataFrame f = {.id = 0x355, .dlc = 8, .data = {98, 0, 94, 0}};
-  // logReadDataFrame(&f);
-  // processDataFrame(&f);
-
-  // // Battery limits
-  // DataFrame f2 = {.id = 0x351,
-  //                 .dlc = 8,
-  //                 .data = {0x46, 0x02, 0x54, 0x01, 0xEC, 0x04, 0, 0}};
-
-  // logReadDataFrame(&f2);
-  // processDataFrame(&f2);
-
-  // // Voltage, Current, Temp
-  // uint32_t m = millis();
-  // if (m < 30000) {
-  //   DataFrame f3 = {
-  //       .id = 0x356, .dlc = 8, .data = {0x8A, 0x16, 0x05, 0x00, 0xFD}};
-  //   logReadDataFrame(&f3);
-  //   processDataFrame(&f3);
-  // } else if (m < 60000) {
-  //   DataFrame f3 = {
-  //       .id = 0x356, .dlc = 8, .data = {0x8A, 0x16, 0x32, 0x00, 0xFD}};
-  //   logReadDataFrame(&f3);
-  //   processDataFrame(&f3);
-  // } else {
-  //   DataFrame f3 = {
-  //       .id = 0x356, .dlc = 8, .data = {0x8A, 0x16, 0xA4, 0xFF, 0xFD}};
-  //   logReadDataFrame(&f3);
-  //   processDataFrame(&f3);
-  // }
 }
 
 void writeCAN() {
@@ -189,7 +155,7 @@ void writeCAN() {
     portEXIT_CRITICAL(&keepAliveMux);
 
     uint32_t timeSinceLastKeepAlive = now - lastMillis;
-    if (timeSinceLastKeepAlive > 2000 && lastMillis > 0) {
+    if (timeSinceLastKeepAlive >= Cfg.canKeepAliveInterval && lastMillis > 0) {
       LOG_W("CAN", "WARNING: %lu ms since last successful keep-alive!", timeSinceLastKeepAlive);
     }
 
@@ -238,6 +204,7 @@ void processDataFrame(DataFrame *f) {
     Ess.temperature = bytesToInt16(f->data[4], f->data[5]) / 10.0;
     break;
   case 857: // 0x359 BMS Error
+    Ess.bmsProtection = f->data[0];
     Ess.bmsWarning = f->data[1];
     Ess.bmsError = f->data[3];
     break;
@@ -304,10 +271,83 @@ EssStatus getEssStatus() {
   copy.ratedChargeCurrent = Ess.ratedChargeCurrent;
   copy.ratedDischargeCurrent = Ess.ratedDischargeCurrent;
   copy.temperature = Ess.temperature;
+  copy.bmsProtection = Ess.bmsProtection;
   copy.bmsWarning = Ess.bmsWarning;
   copy.bmsError = Ess.bmsError;
   portEXIT_CRITICAL(&stateMux);
   return copy;
+}
+
+String getBmsStatusString() {
+  EssStatus s = getEssStatus();
+  String status = "";
+
+  if (s.bmsWarning == 0 && s.bmsError == 0 && s.bmsProtection == 0) {
+    return "Normal";
+  }
+  
+  // 1. Check specific codes first
+  if (s.bmsError == 31) return "Error 31: Critical System Failure";
+  if (s.bmsError == 209) return "Error 209: Critical Logic/Comm Failure";
+  if (s.bmsError == 4) return "Error 4: Sensor/Circuit Failure";
+  if (s.bmsWarning == 192) {
+    // 0xC0 = High Current Discharge + High Current Charge
+    // BUT in some LG/Pylontech implementations this combo means Imbalance/System Warning
+    // If temp is normal (<45C) and voltage is normal (<58V), it is likely High Current or Imbalance.
+    return "Warning 192: High Current / Imbalance";
+  }
+  if (s.bmsWarning == 2) return "Warning 2: Internal/Temp Warning";
+  if (s.bmsWarning == 8) return "Warning 8: High Voltage/Balancing";
+
+  // 2. Protection Flags (Byte 0)
+  if (s.bmsProtection > 0) {
+    status += "[PROT] ";
+    if (s.bmsProtection & 0x80) status += "Dischg OverCur, ";
+    if (s.bmsProtection & 0x40) status += "Chg OverCur, ";
+    if (s.bmsProtection & 0x20) status += "Short Circ, ";
+    if (s.bmsProtection & 0x10) status += "Load Short, ";
+    if (s.bmsProtection & 0x08) status += "Cell UnderVolt, ";
+    if (s.bmsProtection & 0x04) status += "Cell OverVolt, ";
+    if (s.bmsProtection & 0x02) status += "Cell UnderTemp, ";
+    if (s.bmsProtection & 0x01) status += "Cell OverTemp, ";
+  }
+
+  // 3. Warning Flags (Byte 1)
+  if (s.bmsWarning > 0) {
+    status += "[WARN] ";
+    if (s.bmsWarning & 0x80) status += "Dischg HighCur, ";
+    if (s.bmsWarning & 0x40) status += "Chg HighCur, ";
+    if (s.bmsWarning & 0x20) status += "High Temp, ";
+    if (s.bmsWarning & 0x10) status += "Low Temp, ";
+    if (s.bmsWarning & 0x08) status += "High Volt, ";
+    if (s.bmsWarning & 0x04) status += "Low Volt, ";
+    if (s.bmsWarning & 0x02) status += "Internal Err, ";
+    if (s.bmsWarning & 0x01) status += "System Err, ";
+    
+    status += "(Code " + String(s.bmsWarning) + ") ";
+  }
+
+  // 4. Error Flags (Byte 3)
+  if (s.bmsError > 0) {
+    status += "[ERR] ";
+    if (s.bmsError & 0x80) status += "Inv Comm, ";
+    if (s.bmsError & 0x40) status += "Int Logic, ";
+    if (s.bmsError & 0x20) status += "Comm Err, ";
+    if (s.bmsError & 0x10) status += "Cell T-Sens, ";
+    if (s.bmsError & 0x08) status += "Cell V-Sens, ";
+    if (s.bmsError & 0x04) status += "Temp Sens, ";
+    if (s.bmsError & 0x02) status += "Dsg MOS, ";
+    if (s.bmsError & 0x01) status += "Chg MOS, ";
+
+    status += "(Code " + String(s.bmsError) + ")";
+  }
+  
+  // Clean up trailing comma
+  if (status.endsWith(", ")) {
+    status = status.substring(0, status.length() - 2);
+  }
+
+  return status;
 }
 
 bool isInitialized() {

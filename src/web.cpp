@@ -19,6 +19,8 @@ namespace WEB {
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
+static bool shouldCleanupClients = false;
+static bool shouldUpdateData = false;
 
 // WebSocket event handler
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
@@ -27,13 +29,27 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
     Serial.printf("[WS] Client #%u connected, Total clients: %d, Free Heap: %d KB\n",
                   client->id(), ws.count(), ESP.getFreeHeap() / 1024);
 
-    // Clean up disconnected clients to save memory
-    ws.cleanupClients();
+    // Flag for cleanup and update in main loop
+    // DO NOT call ws.cleanupClients() here directly to avoid deadlocks
+    shouldCleanupClients = true;
+    shouldUpdateData = true;
 
-    updateLiveData();
   } else if (type == WS_EVT_DISCONNECT) {
     Serial.printf("[WS] Client #%u disconnected, Total clients: %d\n", client->id(), ws.count());
+    shouldCleanupClients = true;
+  }
+}
+
+// Main loop handler (call from loop())
+void loop() {
+  if (shouldCleanupClients) {
     ws.cleanupClients();
+    shouldCleanupClients = false;
+  }
+  
+  if (shouldUpdateData) {
+    updateLiveData();
+    shouldUpdateData = false;
   }
 }
 
@@ -90,8 +106,8 @@ void begin() {
 
   // Serve main page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    // Clean up disconnected WebSocket clients to free memory
-    ws.cleanupClients();
+    // Flag cleanup
+    shouldCleanupClients = true;
 
     uint32_t freeHeap = ESP.getFreeHeap();
     Serial.printf("[WEB] Main page requested, Free Heap: %d KB\n", freeHeap / 1024);
@@ -147,9 +163,9 @@ void begin() {
       request->send(response);
 
       if (updateSuccessful) {
-        Serial.println("[WEB] OTA Update successful, rebooting...");
-        delay(1000);
-        ESP.restart();
+        Serial.println("[WEB] OTA Update successful, flagging reboot...");
+        // IMPORTANT: Do NOT restart here directly. 
+        needRestart = true;
       } else {
         Serial.printf("[WEB] OTA Update failed, error: %s\n", Update.errorString());
       }
@@ -187,20 +203,51 @@ void begin() {
     }
   );
 
+  // API: WiFi Scan
+  server.on("/api/wifi/scan", HTTP_GET, [](AsyncWebServerRequest *request) {
+    int n = WiFi.scanComplete();
+    if (n == -2) {
+      // Not started, start it
+      WiFi.scanNetworks(true);
+      request->send(200, "application/json", "{\"scanning\":true}");
+    } else if (n == -1) {
+      // In progress
+      request->send(200, "application/json", "{\"scanning\":true}");
+    } else {
+      // Done
+      JsonDocument doc;
+      doc["scanning"] = false;
+      JsonArray networks = doc["networks"].to<JsonArray>();
+      for (int i = 0; i < n; ++i) {
+        JsonObject net = networks.add<JsonObject>();
+        net["ssid"] = WiFi.SSID(i);
+        net["rssi"] = WiFi.RSSI(i);
+        net["auth"] = (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "Open" : "Secured";
+      }
+      WiFi.scanDelete();
+      
+      String json;
+      serializeJson(doc, json);
+      request->send(200, "application/json", json);
+    }
+  });
+
   // API: Get all settings
   server.on("/api/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
     JsonDocument doc;
 
     doc["wifiSTA"] = Cfg.wifiSTA;
     doc["wifiSSID"] = Cfg.wifiSSID;
+    doc["wifiPass"] = Cfg.wifiPass; // Expose password for UI
     doc["tgEnabled"] = Cfg.tgEnabled;
-    doc["tgBotToken"] = Cfg.tgBotToken;
+    doc["tgBotToken"] = Cfg.tgBotToken; // Expose token for UI
     doc["tgChatID"] = Cfg.tgChatID;
     doc["tgThreshold"] = Cfg.tgCurrentThreshold;
     doc["mqttEnabled"] = Cfg.mqttEnabled;
     doc["mqttBroker"] = Cfg.mqttBrokerIp;
     doc["mqttPort"] = Cfg.mqttPort;
     doc["mqttUser"] = Cfg.mqttUsername;
+    doc["mqttPass"] = Cfg.mqttPassword; // Expose password for UI
     doc["canKeepAlive"] = Cfg.canKeepAliveInterval;
     doc["wdEnabled"] = Cfg.watchdogEnabled;
     doc["wdTimeout"] = Cfg.watchdogTimeout;
@@ -361,8 +408,11 @@ void begin() {
         Pref.putString(CFG_WIFI_SSID, Cfg.wifiSSID);
       }
       if (doc["wifi"]["wifiPass"].is<const char*>()) {
-        strlcpy(Cfg.wifiPass, doc["wifi"]["wifiPass"].as<const char*>(), sizeof(Cfg.wifiPass));
-        Pref.putString(CFG_WIFI_PASS, Cfg.wifiPass);
+        const char* pass = doc["wifi"]["wifiPass"].as<const char*>();
+        if (strlen(pass) > 0) {
+          strlcpy(Cfg.wifiPass, pass, sizeof(Cfg.wifiPass));
+          Pref.putString(CFG_WIFI_PASS, Cfg.wifiPass);
+        }
       }
 
       // Telegram settings
@@ -371,8 +421,11 @@ void begin() {
         Pref.putBool(CFG_TG_ENABLED, Cfg.tgEnabled);
       }
       if (doc["telegram"]["tgBotToken"].is<const char*>()) {
-        strlcpy(Cfg.tgBotToken, doc["telegram"]["tgBotToken"].as<const char*>(), sizeof(Cfg.tgBotToken));
-        Pref.putString(CFG_TG_BOT_TOKEN, Cfg.tgBotToken);
+        const char* token = doc["telegram"]["tgBotToken"].as<const char*>();
+        if (strlen(token) > 0) {
+          strlcpy(Cfg.tgBotToken, token, sizeof(Cfg.tgBotToken));
+          Pref.putString(CFG_TG_BOT_TOKEN, Cfg.tgBotToken);
+        }
       }
       if (doc["telegram"]["tgChatID"].is<const char*>()) {
         strlcpy(Cfg.tgChatID, doc["telegram"]["tgChatID"].as<const char*>(), sizeof(Cfg.tgChatID));
@@ -401,8 +454,11 @@ void begin() {
         Pref.putString(CFG_MQQTT_USERNAME, Cfg.mqttUsername);
       }
       if (doc["mqtt"]["mqttPass"].is<const char*>()) {
-        strlcpy(Cfg.mqttPassword, doc["mqtt"]["mqttPass"].as<const char*>(), sizeof(Cfg.mqttPassword));
-        Pref.putString(CFG_MQQTT_PASSWORD, Cfg.mqttPassword);
+        const char* pass = doc["mqtt"]["mqttPass"].as<const char*>();
+        if (strlen(pass) > 0) {
+          strlcpy(Cfg.mqttPassword, pass, sizeof(Cfg.mqttPassword));
+          Pref.putString(CFG_MQQTT_PASSWORD, Cfg.mqttPassword);
+        }
       }
 
       // CAN settings
@@ -444,6 +500,7 @@ void begin() {
     doc["current"] = ess.current;
     doc["temperature"] = ess.temperature;
     doc["canStatus"] = CAN::isInitialized() ? "OK" : "ERROR";
+    doc["bmsError"] = CAN::getBmsStatusString();
     RuntimeStatus runtime = RuntimeCache::getSnapshot();
     doc["hostname"] = Cfg.hostname;
     doc["ip"] = runtime.cachedIP;
@@ -481,6 +538,7 @@ void updateLiveData() {
   doc["current"] = ess.current;
   doc["temperature"] = ess.temperature;
   doc["canStatus"] = CAN::isInitialized() ? "OK" : "ERROR";
+  doc["bmsError"] = CAN::getBmsStatusString();
   doc["hostname"] = Cfg.hostname;
 
   RuntimeStatus runtime = RuntimeCache::getSnapshot();

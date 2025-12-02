@@ -233,6 +233,10 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
           <h3>CAN Status</h3>
           <div class="value" id="canStatus">--</div>
         </div>
+        <div class="card" style="grid-column: 1 / -1;">
+           <h3>BMS Status</h3>
+           <div class="value" id="bmsError" style="font-size: 1.2em; color: #e0e0e0;">--</div>
+        </div>
       </div>
     </div>
 
@@ -248,7 +252,11 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
         </div>
         <div class="form-group">
           <label>SSID:</label>
-          <input type="text" id="wifiSSID" maxlength="128" oninput="markChanged()">
+          <div style="display: flex; gap: 10px;">
+            <input type="text" id="wifiSSID" maxlength="128" oninput="markChanged()" style="flex-grow: 1;">
+            <button type="button" onclick="scanWifi()" style="padding: 10px; background: #333; border: 1px solid #555; color: #e0e0e0; cursor: pointer; border-radius: 4px;">🔍 Scan</button>
+          </div>
+          <div id="wifiList" style="display:none; margin-top: 10px; background: #111; border: 1px solid #333; border-radius: 4px; max-height: 150px; overflow-y: auto;"></div>
         </div>
         <div class="form-group">
           <label>Password:</label>
@@ -384,6 +392,60 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
     let ws;
     let hasUnsavedChanges = false;
 
+    function scanWifi() {
+      const list = document.getElementById('wifiList');
+      list.style.display = 'block';
+      list.innerHTML = '<div style="padding:10px; color:#888;">Scanning...</div>';
+      
+      fetch('/api/wifi/scan')
+        .then(r => r.json())
+        .then(data => {
+          if (data.scanning) {
+            setTimeout(scanWifi, 1000);
+          } else {
+            renderWifiList(data.networks);
+          }
+        })
+        .catch(e => {
+           list.innerHTML = '<div style="padding:10px; color:#F44336;">Error: ' + e + '</div>';
+        });
+    }
+
+    function renderWifiList(networks) {
+      const list = document.getElementById('wifiList');
+      if (!networks || networks.length === 0) {
+        list.innerHTML = '<div style="padding:10px; color:#888;">No networks found</div>';
+        return;
+      }
+      list.innerHTML = '';
+      // Deduplicate by SSID (taking strongest signal)
+      const unique = {};
+      networks.forEach(net => {
+        if (!unique[net.ssid] || net.rssi > unique[net.ssid].rssi) {
+          unique[net.ssid] = net;
+        }
+      });
+      const sorted = Object.values(unique).sort((a,b) => b.rssi - a.rssi);
+
+      sorted.forEach(net => {
+        const div = document.createElement('div');
+        div.style.padding = '8px 10px';
+        div.style.borderBottom = '1px solid #222';
+        div.style.cursor = 'pointer';
+        div.style.display = 'flex';
+        div.style.justifyContent = 'space-between';
+        div.innerHTML = `<span>${net.ssid}</span> <span style="color:#888; font-size:0.9em;">${net.rssi}dBm ${net.auth}</span>`;
+        div.onmouseover = () => div.style.background = '#2a2a2a';
+        div.onmouseout = () => div.style.background = 'transparent';
+        div.onclick = () => {
+           document.getElementById('wifiSSID').value = net.ssid;
+           markChanged();
+           list.style.display = 'none';
+        };
+        list.appendChild(div);
+      });
+    }
+
     function connectWs() {
       ws = new WebSocket('ws://' + window.location.host + '/ws');
       ws.onopen = () => {
@@ -418,6 +480,17 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
       if (data.canStatus !== undefined) {
         document.getElementById('canStatus').textContent = data.canStatus;
         document.getElementById('canStatus').className = data.canStatus === 'OK' ? 'value status-ok' : 'value status-error';
+      }
+      if (data.bmsError !== undefined) {
+         const el = document.getElementById('bmsError');
+         el.textContent = data.bmsError;
+         if (data.bmsError === 'Normal') {
+            el.className = 'value status-ok';
+         } else if (data.bmsError.includes('Warning')) {
+            el.className = 'value status-warning';
+         } else {
+            el.className = 'value status-error';
+         }
       }
 
       // System info
@@ -526,6 +599,7 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
           // WiFi
           if (data.wifiSTA !== undefined) document.getElementById('wifiSTA').checked = data.wifiSTA;
           if (data.wifiSSID !== undefined) document.getElementById('wifiSSID').value = data.wifiSSID;
+          if (data.wifiPass !== undefined) document.getElementById('wifiPass').value = data.wifiPass;
 
           // Telegram
           if (data.tgEnabled !== undefined) document.getElementById('tgEnabled').checked = data.tgEnabled;
@@ -538,6 +612,7 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
           if (data.mqttBroker !== undefined) document.getElementById('mqttBroker').value = data.mqttBroker;
           if (data.mqttPort !== undefined) document.getElementById('mqttPort').value = data.mqttPort;
           if (data.mqttUser !== undefined) document.getElementById('mqttUser').value = data.mqttUser;
+          if (data.mqttPass !== undefined) document.getElementById('mqttPass').value = data.mqttPass;
 
           // CAN
           if (data.canKeepAlive !== undefined) document.getElementById('canKeepAlive').value = data.canKeepAlive;
